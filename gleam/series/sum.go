@@ -10,10 +10,10 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/memory"
 
 	internalCompute "github.com/SHIMA0111/gleam/internal/compute"
-	"github.com/SHIMA0111/gleam/internal/utils"
 )
 
-// Sum calculates the sum of all elements in the Series, returning the result as a new Series. Returns an error if unsupported.
+// Sum calculates the sum of all elements in the Series, returning the result as a new Series with 64-bit number(overflow safe).
+// Returns an error if unsupported.
 // In arrow-go, there is a math.(Int64, UInt64, Float64).Sum, which is the optimized function with assembly.
 // We use this method with cast the array data type.
 // However, in a simple sum execution, the Go loop is faster than the arrow sum function.
@@ -33,7 +33,7 @@ func (s *Series) Sum() (*Series, error) {
 	var newArray arrow.Array
 
 	switch s.DType().ID() {
-	case arrow.INT8, arrow.INT16, arrow.INT32, arrow.INT64:
+	case arrow.INT8, arrow.INT16, arrow.INT32:
 		// Cast the data to Int64
 		castedArray, err := compute.CastToType(ctx, arrayData, arrow.PrimitiveTypes.Int64)
 		if err != nil {
@@ -51,10 +51,25 @@ func (s *Series) Sum() (*Series, error) {
 		// Sum the array and the result should be int64
 		result := math.Int64.Sum(i64Array)
 
-		// Check the overflow for the original data type
-		if utils.IsIntOverflow(result, utils.GetBitLenFromDataType(s.DType())) {
-			return nil, fmt.Errorf("overflow: the array sum = %d in %s", result, s.DType())
+		// Create a new Array builder
+		b := array.NewInt64Builder(mem)
+		defer b.Release()
+
+		// Append the result
+		b.Append(result)
+
+		// Create a new array
+		newArray = b.NewArray()
+		defer newArray.Release()
+	case arrow.INT64:
+		i64Array, ok := s.array.(*array.Int64)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast the array to Int64 from %s: %w", s.DType(), err)
 		}
+		defer i64Array.Release()
+
+		// Sum the array and the result should be int64
+		result := math.Int64.Sum(i64Array)
 
 		// Create a new Array builder
 		b := array.NewInt64Builder(mem)
@@ -66,7 +81,7 @@ func (s *Series) Sum() (*Series, error) {
 		// Create a new array
 		newArray = b.NewArray()
 		defer newArray.Release()
-	case arrow.UINT8, arrow.UINT16, arrow.UINT32, arrow.UINT64:
+	case arrow.UINT8, arrow.UINT16, arrow.UINT32:
 		// Cast the data to UInt64
 		castedArray, err := compute.CastToType(ctx, arrayData, arrow.PrimitiveTypes.Uint64)
 		if err != nil {
@@ -81,10 +96,25 @@ func (s *Series) Sum() (*Series, error) {
 		// Calculate the sum of an array
 		result := math.Uint64.Sum(u64Array)
 
-		// Check the overflow for the original data type
-		if utils.IsUintOverflow(result, utils.GetBitLenFromDataType(s.DType())) {
-			return nil, fmt.Errorf("overflow: the array sum = %d in %s", result, s.DType())
+		// Create a new array builder
+		b := array.NewUint64Builder(mem)
+		defer b.Release()
+
+		// Append the result
+		b.Append(result)
+
+		// Create a new array
+		newArray = b.NewArray()
+		defer newArray.Release()
+	case arrow.UINT64:
+		u64Array, ok := s.array.(*array.Uint64)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast the array to Uint64 from %s: %w", s.DType(), err)
 		}
+		defer u64Array.Release()
+
+		// Calculate the sum of an array
+		result := math.Uint64.Sum(u64Array)
 
 		// Create a new array builder
 		b := array.NewUint64Builder(mem)
@@ -96,7 +126,7 @@ func (s *Series) Sum() (*Series, error) {
 		// Create a new array
 		newArray = b.NewArray()
 		defer newArray.Release()
-	case arrow.FLOAT32, arrow.FLOAT64:
+	case arrow.FLOAT32:
 		// Cast the data to Float64
 		castedArray, err := compute.CastToType(ctx, arrayData, arrow.PrimitiveTypes.Float64)
 		if err != nil {
@@ -111,9 +141,25 @@ func (s *Series) Sum() (*Series, error) {
 		// Calculate the sum of an array
 		result := math.Float64.Sum(f64Array)
 
-		if utils.IsFloatOverflow(result, utils.GetBitLenFromDataType(s.DType())) {
-			return nil, fmt.Errorf("overflow: the array sum = %f in %s", result, s.DType())
+		// Create a new array builder
+		b := array.NewFloat64Builder(mem)
+		defer b.Release()
+
+		// Append the result
+		b.Append(result)
+
+		// Create a new array
+		newArray = b.NewArray()
+		defer newArray.Release()
+	case arrow.FLOAT64:
+		f64Array, ok := s.array.(*array.Float64)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast the array to Float64 from %s: %w", s.DType(), err)
 		}
+		defer f64Array.Release()
+
+		// Calculate the sum of an array
+		result := math.Float64.Sum(f64Array)
 
 		// Create a new array builder
 		b := array.NewFloat64Builder(mem)
@@ -129,12 +175,6 @@ func (s *Series) Sum() (*Series, error) {
 		// If the data type is not supported, return an error
 		return nil, fmt.Errorf("sum is not supported for %s", s.DType())
 	}
-	// Overflow safe: Already check the overflow value
-	resultArray, err := compute.CastToType(ctx, newArray, s.DType())
-	if err != nil {
-		return nil, fmt.Errorf("failed to cast the result to %s: %w", s.DType(), err)
-	}
-	defer resultArray.Release()
 
-	return NewSeries(s.name, resultArray), nil
+	return NewSeries(s.name, newArray), nil
 }

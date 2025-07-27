@@ -40,7 +40,7 @@ func TestSeries_Sum(t *testing.T) {
 		}
 
 		// Access the underlying array to check value
-		resultArr := result.array.(*array.Int8)
+		resultArr := result.array.(*array.Int64)
 		if resultArr.Value(0) != 15 {
 			t.Errorf("expected sum 15, got %d", resultArr.Value(0))
 		}
@@ -72,7 +72,7 @@ func TestSeries_Sum(t *testing.T) {
 		}
 
 		// Access the underlying array to check value
-		resultArr := result.array.(*array.Int16)
+		resultArr := result.array.(*array.Int64)
 		if resultArr.Value(0) != 1500 {
 			t.Errorf("expected sum 1500, got %d", resultArr.Value(0))
 		}
@@ -104,7 +104,7 @@ func TestSeries_Sum(t *testing.T) {
 		}
 
 		// Access the underlying array to check value
-		resultArr := result.array.(*array.Int32)
+		resultArr := result.array.(*array.Int64)
 		if resultArr.Value(0) != 15000 {
 			t.Errorf("expected sum 15000, got %d", resultArr.Value(0))
 		}
@@ -169,7 +169,7 @@ func TestSeries_Sum(t *testing.T) {
 		}
 
 		// Access the underlying array to check value
-		resultArr := result.array.(*array.Uint8)
+		resultArr := result.array.(*array.Uint64)
 		if resultArr.Value(0) != 150 {
 			t.Errorf("expected sum 150, got %d", resultArr.Value(0))
 		}
@@ -201,7 +201,7 @@ func TestSeries_Sum(t *testing.T) {
 		}
 
 		// Access the underlying array to check value
-		resultArr := result.array.(*array.Uint16)
+		resultArr := result.array.(*array.Uint64)
 		if resultArr.Value(0) != 15000 {
 			t.Errorf("expected sum 15000, got %d", resultArr.Value(0))
 		}
@@ -233,7 +233,7 @@ func TestSeries_Sum(t *testing.T) {
 		}
 
 		// Access the underlying array to check value
-		resultArr := result.array.(*array.Uint32)
+		resultArr := result.array.(*array.Uint64)
 		if resultArr.Value(0) != 150000 {
 			t.Errorf("expected sum 150000, got %d", resultArr.Value(0))
 		}
@@ -298,9 +298,9 @@ func TestSeries_Sum(t *testing.T) {
 		}
 
 		// Access the underlying array to check value
-		resultArr := result.array.(*array.Float32)
+		resultArr := result.array.(*array.Float64)
 		// Use approximate comparison for floating point
-		if math.Abs(float64(resultArr.Value(0)-16.5)) > 0.0001 {
+		if math.Abs(resultArr.Value(0)-16.5) > 0.0001 {
 			t.Errorf("expected sum approximately 16.5, got %f", resultArr.Value(0))
 		}
 	})
@@ -364,7 +364,7 @@ func TestSeries_Sum(t *testing.T) {
 		}
 
 		// Access the underlying array to check value
-		resultArr := result.array.(*array.Int32)
+		resultArr := result.array.(*array.Int64)
 		if resultArr.Value(0) != 0 {
 			t.Errorf("expected sum 0 for empty array, got %d", resultArr.Value(0))
 		}
@@ -400,7 +400,7 @@ func TestSeries_Sum(t *testing.T) {
 		}
 
 		// Access the underlying array to check value
-		resultArr := result.array.(*array.Int32)
+		resultArr := result.array.(*array.Int64)
 		// We don't check for a specific sum value here as the implementation
 		// might handle null values differently. We just verify that the operation
 		// completes successfully and returns a result of the correct type.
@@ -409,46 +409,8 @@ func TestSeries_Sum(t *testing.T) {
 		_ = resultArr.Value(0) // This ensures we can access the value without asserting what it should be
 	})
 
-	// Overflow cases
-	t.Run("int8 overflow", func(t *testing.T) {
-		builder := array.NewInt8Builder(mem)
-		defer builder.Release()
-
-		// Append values that will cause overflow for int8
-		builder.AppendValues([]int8{100, 100}, nil)
-		arr := builder.NewArray()
-		defer arr.Release()
-
-		// Create a series
-		s := NewSeries("overflow_test", arr)
-		defer s.Release()
-
-		// Calculate sum - should return overflow error
-		_, err := s.Sum()
-		if err == nil {
-			t.Fatalf("expected overflow error, got nil")
-		}
-	})
-
-	t.Run("uint8 overflow", func(t *testing.T) {
-		builder := array.NewUint8Builder(mem)
-		defer builder.Release()
-
-		// Append values that will cause overflow for uint8
-		builder.AppendValues([]uint8{200, 200}, nil)
-		arr := builder.NewArray()
-		defer arr.Release()
-
-		// Create a series
-		s := NewSeries("overflow_test", arr)
-		defer s.Release()
-
-		// Calculate sum - should return overflow error
-		_, err := s.Sum()
-		if err == nil {
-			t.Fatalf("expected overflow error, got nil")
-		}
-	})
+	// Note: Overflow tests have been removed since the Sum function now returns 64-bit types,
+	// which can handle much larger values without overflow.
 
 	// Unsupported type
 	t.Run("unsupported type", func(t *testing.T) {
