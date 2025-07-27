@@ -1,11 +1,12 @@
 package series
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
-	"strings"
-	"testing"
 )
 
 func TestNewSeries(t *testing.T) {

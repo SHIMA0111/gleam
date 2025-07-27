@@ -8,8 +8,9 @@ import (
 // Series represents a named collection of data stored as an Arrow array.
 // It supports various primitive data types through the array field.
 type Series struct {
-	array arrow.Array
-	name  string
+	array    arrow.Array
+	name     string
+	datatype arrow.DataType
 }
 
 // NewSeries creates a new Series with the specified name from the given Arrow array. The array's reference count is retained.
@@ -17,8 +18,9 @@ func NewSeries(name string, array arrow.Array) *Series {
 	array.Retain()
 
 	return &Series{
-		array: array,
-		name:  name,
+		array:    array,
+		name:     name,
+		datatype: array.DataType(),
 	}
 }
 
@@ -66,5 +68,8 @@ func (s *Series) String() string {
 	if s.array == nil {
 		return ""
 	}
-	return fmt.Sprintf("Series: %s\n%s", s.Name(), s.array)
+
+	return fmt.Sprintf(
+		"Series: %s Type: %s\n%s", s.Name(), s.datatype, s.array,
+	)
 }

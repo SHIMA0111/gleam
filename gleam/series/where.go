@@ -3,10 +3,11 @@ package series
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/compute"
 	"github.com/apache/arrow-go/v18/arrow/scalar"
-	"strconv"
 )
 
 // FilterOperand defines a string type representing comparison or filtering operations for data processing.

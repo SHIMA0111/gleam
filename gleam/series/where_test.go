@@ -1,11 +1,12 @@
 package series
 
 import (
+	"strconv"
+	"testing"
+
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
-	"strconv"
-	"testing"
 )
 
 func TestSeries_Where(t *testing.T) {
