@@ -24,6 +24,43 @@ const (
 
 // Where filters the Series based on the given FilterOperand and value, returning a new Series with matched elements.
 func (s *Series) Where(cond FilterOperand, val interface{}) (*Series, error) {
+	// Create context
+	ctx := context.Background()
+
+	filterArray, err := s.comparison(ctx, cond, val)
+	if err != nil {
+		return nil, err
+	}
+	defer filterArray.Release()
+
+	// FilterOptions: currently using the default options
+	filterOpts := compute.DefaultFilterOptions()
+
+	// Apply the filter using the bitmap from the condition compare function
+	resultArray, err := compute.FilterArray(ctx, s.array, filterArray, *filterOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to filter array: %w", err)
+	}
+	defer resultArray.Release()
+
+	// Create Series by the filtered array with the input series name
+	resultSeries := NewSeries(s.name, resultArray)
+
+	return resultSeries, nil
+}
+
+// Comparison performs element-wise comparison on the Series using the specified condition and value, returning a bitmap array.
+// The method takes a FilterOperand and value as parameters and returns an arrow.Array or an error if the operation fails.
+func (s *Series) Comparison(cond FilterOperand, val interface{}) (arrow.Array, error) {
+	ctx := context.Background()
+
+	return s.comparison(ctx, cond, val)
+}
+
+// Performs element-wise comparison using a specified condition and value, returning a filtered Arrow array.
+// It validates the provided value and ensures type compatibility with the Series, generating a mask to apply the filter.
+// Returns an Arrow array or an error if the operation or type validation fails.
+func (s *Series) comparison(ctx context.Context, cond FilterOperand, val interface{}) (arrow.Array, error) {
 	// Make the input value to proper scalar value
 	scl, err := makeScalar(val)
 	if err != nil {
@@ -39,11 +76,8 @@ func (s *Series) Where(cond FilterOperand, val interface{}) (*Series, error) {
 		return nil, fmt.Errorf("type mismatch: series type is %s, but value type is %s", s.DType(), scl.DataType())
 	}
 
-	// Create context
-	ctx := context.Background()
-
 	// Convert the scalar to Datum for using it on compute methods
-	scalarDatum := compute.NewDatum(scl)
+	scalarDatum := compute.NewDatum(val)
 	defer scalarDatum.Release()
 
 	// Convert the arrow array in the series to Datum for using it on compute methods
@@ -57,26 +91,12 @@ func (s *Series) Where(cond FilterOperand, val interface{}) (*Series, error) {
 	}
 	defer filterDatum.Release()
 
-	// FilterOptions: currently using the default options
-	filterOpts := compute.DefaultFilterOptions()
-
-	// Apply the filter using the bitmap from the condition compare function
-	resultDatum, err := compute.Filter(ctx, arrayDatum, filterDatum, *filterOpts)
-	if err != nil {
-		return nil, fmt.Errorf("failed to filter array: %w", err)
-	}
-	defer resultDatum.Release()
-
-	// Convert the result Datum to ArrayDatum to convert it to Arrow held by Series
-	resultArray, ok := resultDatum.(*compute.ArrayDatum)
+	filterArray, ok := filterDatum.(*compute.ArrayDatum)
 	if !ok {
 		return nil, fmt.Errorf("filter did not return an array datum")
 	}
 
-	// Create Series by the filtered array with the input series name
-	resultSeries := NewSeries(s.name, resultArray.MakeArray())
-
-	return resultSeries, nil
+	return filterArray.MakeArray(), nil
 }
 
 // makeScalar translates the input-compared value to the arrow scalar

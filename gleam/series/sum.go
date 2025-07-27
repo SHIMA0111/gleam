@@ -3,7 +3,6 @@ package series
 import (
 	"context"
 	"fmt"
-
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/compute"
@@ -15,29 +14,25 @@ import (
 )
 
 // Sum calculates the sum of all elements in the Series, returning the result as a new Series. Returns an error if unsupported.
-// In arrow-go, there is a math.(Int64, UInt64, Float64).Sum, which is the maximum optimized function.
+// In arrow-go, there is a math.(Int64, UInt64, Float64).Sum, which is the optimized function with assembly.
 // We use this method with cast the array data type.
-// If sometimes this is an obstacle to flexibility, we consider it refactor with kernel functions.
+// However, in a simple sum execution, the Go loop is faster than the arrow sum function.
+// TODO: Consider which is the best way to implement Sum, Arrow Sum + Cast or Go loop sum
 func (s *Series) Sum() (*Series, error) {
 	ctx := context.Background()
 	mem := memory.DefaultAllocator
 
-	var arrayData arrow.Array
-	var err error
-	if s.NullCount() > 0 {
-		// Drop null values from the array because the underlying math.(--).Sum() function
-		// doesn't consider the null values
-		arrayData, err = internalCompute.DropNullArray(ctx, s.array)
-		if err != nil {
-			return nil, err
-		}
-		defer arrayData.Release()
-	} else {
-		arrayData = s.array
+	// Drop null values from the array because the underlying math.(--).Sum() function
+	// doesn't consider the null values
+	arrayData, err := internalCompute.DropNullArray(ctx, s.array)
+	if err != nil {
+		return nil, err
 	}
+	defer arrayData.Release()
+
+	var newArray arrow.Array
 
 	switch s.DType().ID() {
-	// Int64.Sum() can cover INT8/INT16/INT32/INT64
 	case arrow.INT8, arrow.INT16, arrow.INT32, arrow.INT64:
 		// Cast the data to Int64
 		castedArray, err := compute.CastToType(ctx, arrayData, arrow.PrimitiveTypes.Int64)
@@ -69,18 +64,8 @@ func (s *Series) Sum() (*Series, error) {
 		b.Append(result)
 
 		// Create a new array
-		newArray := b.NewArray()
+		newArray = b.NewArray()
 		defer newArray.Release()
-
-		// Overflow safe: Already check the overflow value
-		resultArray, err := compute.CastToType(ctx, newArray, s.DType())
-		if err != nil {
-			return nil, fmt.Errorf("failed to cast the result to %s: %w", s.DType(), err)
-		}
-		defer resultArray.Release()
-
-		return NewSeries(s.name, resultArray), nil
-
 	case arrow.UINT8, arrow.UINT16, arrow.UINT32, arrow.UINT64:
 		// Cast the data to UInt64
 		castedArray, err := compute.CastToType(ctx, arrayData, arrow.PrimitiveTypes.Uint64)
@@ -109,17 +94,8 @@ func (s *Series) Sum() (*Series, error) {
 		b.Append(result)
 
 		// Create a new array
-		newArray := b.NewArray()
+		newArray = b.NewArray()
 		defer newArray.Release()
-
-		// Overflow safe: Check the overflow prior so this convert is value safe
-		resultArray, err := compute.CastToType(ctx, newArray, s.DType())
-		if err != nil {
-			return nil, fmt.Errorf("failed to cast the result to %s: %w", s.DType(), err)
-		}
-		defer resultArray.Release()
-
-		return NewSeries(s.name, resultArray), nil
 	case arrow.FLOAT32, arrow.FLOAT64:
 		// Cast the data to Float64
 		castedArray, err := compute.CastToType(ctx, arrayData, arrow.PrimitiveTypes.Float64)
@@ -147,19 +123,18 @@ func (s *Series) Sum() (*Series, error) {
 		b.Append(result)
 
 		// Create a new array
-		newArray := b.NewArray()
+		newArray = b.NewArray()
 		defer newArray.Release()
-
-		// Overflow safe: Check the overflow prior so this convert is value safe
-		resultArray, err := compute.CastToType(ctx, newArray, s.DType())
-		if err != nil {
-			return nil, fmt.Errorf("failed to cast the result to %s: %w", s.DType(), err)
-		}
-		defer resultArray.Release()
-
-		return NewSeries(s.name, resultArray), nil
 	default:
 		// If the data type is not supported, return an error
 		return nil, fmt.Errorf("sum is not supported for %s", s.DType())
 	}
+	// Overflow safe: Already check the overflow value
+	resultArray, err := compute.CastToType(ctx, newArray, s.DType())
+	if err != nil {
+		return nil, fmt.Errorf("failed to cast the result to %s: %w", s.DType(), err)
+	}
+	defer resultArray.Release()
+
+	return NewSeries(s.name, resultArray), nil
 }
