@@ -62,9 +62,10 @@ and goroutine multithreading.
 
 ### v0.4.0
 #### Performance
- - [ ] Introduce Lazy evaluation for operations
+ - [ ] Introduce Lazy evaluation for more operations
  - [ ] Streaming load
- - [ ] Thoroughly using **SIMD** for GroupBy
+ - [ ] Predicate/Projection Pushdown for memory optimization
+ - [ ] Aggressive concurrency with goroutine
 
 ### v0.5.0 or later
 #### I/O
@@ -76,3 +77,10 @@ and goroutine multithreading.
  - [ ] `map` (Go) 
 #### DataType
  - [ ] Expand DataType for a corner case
+#### Performance
+ - [ ] SIMD optimization if needed
+   - Respect
+     ```text
+     Measure. Don’t tune for speed until you’ve measured, 
+     and even then don’t unless one part of the code overwhelms the rest.
+     ```
