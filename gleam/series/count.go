@@ -2,9 +2,8 @@ package series
 
 import (
 	"context"
-	"fmt"
+	"github.com/apache/arrow-go/v18/arrow/scalar"
 
-	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 
 	internalCompute "github.com/SHIMA0111/gleam/internal/compute"
@@ -12,22 +11,29 @@ import (
 
 func (s *Series) Count() (*Series, error) {
 	ctx := context.Background()
-	skippedNaArray, err := internalCompute.DropNullArray(ctx, s.array)
-	if err != nil {
-		return nil, fmt.Errorf("failed to drop null values: %w", err)
-	}
-	defer skippedNaArray.Release()
-
-	count := skippedNaArray.Len()
-
 	mem := memory.DefaultAllocator
 
-	b := array.NewInt64Builder(mem)
-	defer b.Release()
+	count, err := s.count(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	b.Append(int64(count))
-	newArray := b.NewArray()
+	scl := scalar.NewInt64Scalar(count)
+	newArray, err := scalar.MakeArrayFromScalar(scl, 1, mem)
+	if err != nil {
+		return nil, err
+	}
 	defer newArray.Release()
 
 	return NewSeries(s.name, newArray), nil
+}
+
+func (s *Series) count(ctx context.Context) (int64, error) {
+	droppedArray, err := internalCompute.DropNullArray(ctx, s.array)
+	if err != nil {
+		return 0, err
+	}
+	defer droppedArray.Release()
+
+	return int64(droppedArray.Len()), nil
 }

@@ -1,6 +1,7 @@
 package series
 
 import (
+	series2 "github.com/SHIMA0111/gleam/gleam/series"
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
@@ -9,7 +10,7 @@ import (
 )
 
 // generateInt32Data creates a Series with n int32 elements for benchmarking
-func generateInt32Data(n int) *Series {
+func generateInt32Data(n int) *series2.Series {
 	mem := memory.NewGoAllocator()
 	builder := array.NewInt32Builder(mem)
 
@@ -26,11 +27,11 @@ func generateInt32Data(n int) *Series {
 	builder.Release()
 
 	// Don't release the array here, the Series will own it
-	return NewSeries("benchmark_int32", arr)
+	return series2.NewSeries("benchmark_int32", arr)
 }
 
 // generateInt64Data creates a Series with n int64 elements for benchmarking
-func generateInt64Data(n int) *Series {
+func generateInt64Data(n int) *series2.Series {
 	mem := memory.NewGoAllocator()
 	builder := array.NewInt64Builder(mem)
 
@@ -47,11 +48,11 @@ func generateInt64Data(n int) *Series {
 	builder.Release()
 
 	// Don't release the array here, the Series will own it
-	return NewSeries("benchmark_int64", arr)
+	return series2.NewSeries("benchmark_int64", arr)
 }
 
 // generateFloat32Data creates a Series with n float32 elements for benchmarking
-func generateFloat32Data(n int) *Series {
+func generateFloat32Data(n int) *series2.Series {
 	mem := memory.NewGoAllocator()
 	builder := array.NewFloat32Builder(mem)
 
@@ -68,11 +69,11 @@ func generateFloat32Data(n int) *Series {
 	builder.Release()
 
 	// Don't release the array here, the Series will own it
-	return NewSeries("benchmark_float32", arr)
+	return series2.NewSeries("benchmark_float32", arr)
 }
 
 // generateFloat64Data creates a Series with n float64 elements for benchmarking
-func generateFloat64Data(n int) *Series {
+func generateFloat64Data(n int) *series2.Series {
 	mem := memory.NewGoAllocator()
 	builder := array.NewFloat64Builder(mem)
 
@@ -89,7 +90,7 @@ func generateFloat64Data(n int) *Series {
 	builder.Release()
 
 	// Don't release the array here, the Series will own it
-	return NewSeries("benchmark_float64", arr)
+	return series2.NewSeries("benchmark_float64", arr)
 }
 
 // generateGotaInt32Data creates a Gota Series with n int32 elements for benchmarking
@@ -149,7 +150,7 @@ func generateGotaFloat64Data(n int) series.Series {
 }
 
 // generateInt8Data creates a Series with n int8 elements for benchmarking
-func generateInt8Data(n int) *Series {
+func generateInt8Data(n int) *series2.Series {
 	mem := memory.NewGoAllocator()
 	builder := array.NewInt8Builder(mem)
 
@@ -166,11 +167,11 @@ func generateInt8Data(n int) *Series {
 	builder.Release()
 
 	// Don't release the array here, the Series will own it
-	return NewSeries("benchmark_int8", arr)
+	return series2.NewSeries("benchmark_int8", arr)
 }
 
 // generateInt16Data creates a Series with n int16 elements for benchmarking
-func generateInt16Data(n int) *Series {
+func generateInt16Data(n int) *series2.Series {
 	mem := memory.NewGoAllocator()
 	builder := array.NewInt16Builder(mem)
 
@@ -187,11 +188,11 @@ func generateInt16Data(n int) *Series {
 	builder.Release()
 
 	// Don't release the array here, the Series will own it
-	return NewSeries("benchmark_int16", arr)
+	return series2.NewSeries("benchmark_int16", arr)
 }
 
 // generateUint8Data creates a Series with n uint8 elements for benchmarking
-func generateUint8Data(n int) *Series {
+func generateUint8Data(n int) *series2.Series {
 	mem := memory.NewGoAllocator()
 	builder := array.NewUint8Builder(mem)
 
@@ -208,11 +209,11 @@ func generateUint8Data(n int) *Series {
 	builder.Release()
 
 	// Don't release the array here, the Series will own it
-	return NewSeries("benchmark_uint8", arr)
+	return series2.NewSeries("benchmark_uint8", arr)
 }
 
 // generateUint16Data creates a Series with n uint16 elements for benchmarking
-func generateUint16Data(n int) *Series {
+func generateUint16Data(n int) *series2.Series {
 	mem := memory.NewGoAllocator()
 	builder := array.NewUint16Builder(mem)
 
@@ -229,11 +230,11 @@ func generateUint16Data(n int) *Series {
 	builder.Release()
 
 	// Don't release the array here, the Series will own it
-	return NewSeries("benchmark_uint16", arr)
+	return series2.NewSeries("benchmark_uint16", arr)
 }
 
 // generateUint32Data creates a Series with n uint32 elements for benchmarking
-func generateUint32Data(n int) *Series {
+func generateUint32Data(n int) *series2.Series {
 	mem := memory.NewGoAllocator()
 	builder := array.NewUint32Builder(mem)
 
@@ -250,11 +251,11 @@ func generateUint32Data(n int) *Series {
 	builder.Release()
 
 	// Don't release the array here, the Series will own it
-	return NewSeries("benchmark_uint32", arr)
+	return series2.NewSeries("benchmark_uint32", arr)
 }
 
 // generateUint64Data creates a Series with n uint64 elements for benchmarking
-func generateUint64Data(n int) *Series {
+func generateUint64Data(n int) *series2.Series {
 	mem := memory.NewGoAllocator()
 	builder := array.NewUint64Builder(mem)
 
@@ -271,7 +272,7 @@ func generateUint64Data(n int) *Series {
 	builder.Release()
 
 	// Don't release the array here, the Series will own it
-	return NewSeries("benchmark_uint64", arr)
+	return series2.NewSeries("benchmark_uint64", arr)
 }
 
 // generateGotaInt8Data creates a Gota Series with n int8 elements for benchmarking

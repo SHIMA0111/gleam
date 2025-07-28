@@ -73,3 +73,7 @@ func (s *Series) String() string {
 		"Series: %s Type: %s\n%s", s.Name(), s.datatype, s.array,
 	)
 }
+
+func (s *Series) underlyingArray() arrow.Array {
+	return s.array
+}

@@ -25,178 +25,113 @@ func (s *Series) Sum() (*Series, error) {
 	ctx := context.Background()
 	mem := memory.DefaultAllocator
 
-	// Drop null values from the array because the underlying math.(--).Sum() function
-	// doesn't consider the null values
-	arrayData, err := internalCompute.DropNullArray(ctx, s.array)
+	sumVal, err := s.sum(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer arrayData.Release()
 
-	var newArray arrow.Array
+	scl := scalar.NewFloat64Scalar(sumVal)
+	newArray, err := scalar.MakeArrayFromScalar(scl, 1, mem)
+	if err != nil {
+		return nil, err
+	}
+	defer newArray.Release()
+
+	return NewSeries(s.name, newArray), nil
+}
+
+func (s *Series) sum(ctx context.Context) (float64, error) {
+	droppedArray, err := internalCompute.DropNullArray(ctx, s.array)
+	if err != nil {
+		return 0, err
+	}
+	defer droppedArray.Release()
 
 	switch s.DType().ID() {
 	case arrow.INT8:
-		// Cast the data to Int64
-		var result int64
-		if arrayData.Len() < SumThreshold {
-			result = sumInt8Array(arrayData.(*array.Int8))
+		if s.Len() < SumThreshold {
+			return float64(sumInt8Array(droppedArray.(*array.Int8))), nil
 		} else {
-			result, err = castSumInt(ctx, arrayData)
-			if err != nil {
-				return nil, err
+			if v, err := castSumInt(ctx, droppedArray); err == nil {
+				return float64(v), nil
 			}
+			return 0, err
 		}
-
-		newArray, err = arrayFromInt64(result, mem)
-		if err != nil {
-			return nil, err
-		}
-		defer newArray.Release()
 	case arrow.INT16:
-		// Cast the data to Int64
-		var result int64
-		if arrayData.Len() < SumThreshold {
-			result = sumInt16Array(arrayData.(*array.Int16))
+		if s.Len() < SumThreshold {
+			return float64(sumInt16Array(droppedArray.(*array.Int16))), nil
 		} else {
-			result, err = castSumInt(ctx, arrayData)
-			if err != nil {
-				return nil, err
+			if v, err := castSumInt(ctx, droppedArray); err == nil {
+				return float64(v), nil
 			}
+			return 0, err
 		}
-
-		newArray, err = arrayFromInt64(result, mem)
-		if err != nil {
-			return nil, err
-		}
-		defer newArray.Release()
 	case arrow.INT32:
-		// Cast the data to Int64
-		var result int64
-		if arrayData.Len() < SumThreshold {
-			result = sumInt32Array(arrayData.(*array.Int32))
+		if s.Len() < SumThreshold {
+			return float64(sumInt32Array(droppedArray.(*array.Int32))), nil
 		} else {
-			result, err = castSumInt(ctx, arrayData)
-			if err != nil {
-				return nil, err
+			if v, err := castSumInt(ctx, droppedArray); err == nil {
+				return float64(v), nil
 			}
+			return 0, err
 		}
-
-		newArray, err = arrayFromInt64(result, mem)
-		if err != nil {
-			return nil, err
-		}
-		defer newArray.Release()
 	case arrow.INT64:
-		i64Array, ok := arrayData.(*array.Int64)
+		i64Array, ok := droppedArray.(*array.Int64)
 		if !ok {
-			return nil, fmt.Errorf("failed to cast the array to Int64 from %s: %w", s.DType(), err)
+			return 0, fmt.Errorf("failed to cast the array to Int64 from %s: %w", s.DType(), err)
 		}
 
-		// Sum the array and the result should be int64
-		result := math.Int64.Sum(i64Array)
-
-		newArray, err = arrayFromInt64(result, mem)
-		if err != nil {
-			return nil, err
-		}
-		defer newArray.Release()
+		return float64(math.Int64.Sum(i64Array)), nil
 	case arrow.UINT8:
-		var result uint64
-
-		if arrayData.Len() < SumThreshold {
-			result = sumUInt8Array(arrayData.(*array.Uint8))
+		if s.Len() < SumThreshold {
+			return float64(sumUInt8Array(droppedArray.(*array.Uint8))), nil
 		} else {
-			result, err = castSumUInt(ctx, arrayData)
-			if err != nil {
-				return nil, err
+			if v, err := castSumUInt(ctx, droppedArray); err == nil {
+				return float64(v), nil
 			}
+			return 0, err
 		}
-
-		newArray, err = arrayFromUint64(result, mem)
-		if err != nil {
-			return nil, err
-		}
-		defer newArray.Release()
 	case arrow.UINT16:
-		var result uint64
-
-		if arrayData.Len() < SumThreshold {
-			result = sumUInt16Array(arrayData.(*array.Uint16))
+		if s.Len() < SumThreshold {
+			return float64(sumUInt16Array(droppedArray.(*array.Uint16))), nil
 		} else {
-			result, err = castSumUInt(ctx, arrayData)
-			if err != nil {
-				return nil, err
+			if v, err := castSumUInt(ctx, droppedArray); err == nil {
+				return float64(v), nil
 			}
+			return 0, err
 		}
-
-		newArray, err = arrayFromUint64(result, mem)
-		if err != nil {
-			return nil, err
-		}
-		defer newArray.Release()
 	case arrow.UINT32:
-		var result uint64
-
-		if arrayData.Len() < SumThreshold {
-			result = sumUInt32Array(arrayData.(*array.Uint32))
+		if s.Len() < SumThreshold {
+			return float64(sumUInt32Array(droppedArray.(*array.Uint32))), nil
 		} else {
-			result, err = castSumUInt(ctx, arrayData)
+			if v, err := castSumUInt(ctx, droppedArray); err == nil {
+				return float64(v), nil
+			}
+			return 0, err
 		}
-
-		newArray, err = arrayFromUint64(result, mem)
-		if err != nil {
-			return nil, err
-		}
-		defer newArray.Release()
 	case arrow.UINT64:
-		u64Array, ok := arrayData.(*array.Uint64)
+		u64Array, ok := droppedArray.(*array.Uint64)
 		if !ok {
-			return nil, fmt.Errorf("failed to cast the array to Uint64 from %s: %w", s.DType(), err)
+			return 0, fmt.Errorf("failed to cast the array to Uint64 from %s: %w", s.DType(), err)
 		}
 
-		// Calculate the sum of an array
-		result := math.Uint64.Sum(u64Array)
-
-		newArray, err = arrayFromUint64(result, mem)
-		if err != nil {
-			return nil, err
-		}
-		defer newArray.Release()
+		return float64(math.Uint64.Sum(u64Array)), nil
 	case arrow.FLOAT32:
-		var result float64
-
-		if arrayData.Len() < SumThreshold {
-			result = sumFloat32Array(arrayData.(*array.Float32))
+		if s.Len() < SumThreshold {
+			return sumFloat32Array(droppedArray.(*array.Float32)), nil
 		} else {
-			result, err = castSumFloat(ctx, arrayData)
+			return castSumFloat(ctx, droppedArray)
 		}
-
-		newArray, err = arrayFromFloat64(result, mem)
-		if err != nil {
-			return nil, err
-		}
-		defer newArray.Release()
 	case arrow.FLOAT64:
-		f64Array, ok := arrayData.(*array.Float64)
+		f64Array, ok := droppedArray.(*array.Float64)
 		if !ok {
-			return nil, fmt.Errorf("failed to cast the array to Float64 from %s: %w", s.DType(), err)
+			return 0, fmt.Errorf("failed to cast the array to Float64 from %s: %w", s.DType(), err)
 		}
 
-		// Calculate the sum of an array
-		result := math.Float64.Sum(f64Array)
-
-		newArray, err = arrayFromFloat64(result, mem)
-		if err != nil {
-			return nil, err
-		}
-		defer newArray.Release()
+		return math.Float64.Sum(f64Array), nil
 	default:
-		// If the data type is not supported, return an error
-		return nil, fmt.Errorf("sum is not supported for %s", s.DType())
+		return 0, fmt.Errorf("sum is not supported for %s", s.DType())
 	}
-
-	return NewSeries(s.name, newArray), nil
 }
 
 func castSumInt(ctx context.Context, arr arrow.Array) (int64, error) {
@@ -245,22 +180,4 @@ func castSumFloat(ctx context.Context, arr arrow.Array) (float64, error) {
 	f64Array := castedArray.(*array.Float64)
 
 	return math.Float64.Sum(f64Array), nil
-}
-
-func arrayFromInt64(val int64, mem memory.Allocator) (arrow.Array, error) {
-	scl := scalar.NewInt64Scalar(val)
-
-	return scalar.MakeArrayFromScalar(scl, 1, mem)
-}
-
-func arrayFromUint64(val uint64, mem memory.Allocator) (arrow.Array, error) {
-	scl := scalar.NewUint64Scalar(val)
-
-	return scalar.MakeArrayFromScalar(scl, 1, mem)
-}
-
-func arrayFromFloat64(val float64, mem memory.Allocator) (arrow.Array, error) {
-	scl := scalar.NewFloat64Scalar(val)
-
-	return scalar.MakeArrayFromScalar(scl, 1, mem)
 }
