@@ -11,6 +11,7 @@ import (
 // DropNullArray removes null elements from an Arrow array and returns a new array with only non-null elements.
 func DropNullArray(ctx context.Context, arrayData arrow.Array) (arrow.Array, error) {
 	if arrayData.NullN() == 0 {
+		arrayData.Retain()
 		return arrayData, nil
 	}
 
