@@ -4,11 +4,9 @@ This library focuses on the speed to operation with Arrow memory design
 and goroutine multithreading.
 
 # Series Performance
-We respect [Gota](https://github.com/go-gota/gota) which is the pioneer of the DataFrame library
-in the Go language.
-`Gota` doesn't use Apache Arrow and the latest commit for the Gota was 3 years ago, 
-so `Gleam` has a large amount advantage for the performance.
-And the comparison is just for raising awareness the `Gleam`, not belittle the `Gota` itself.
+We have respect for [Gota](https://github.com/go-gota/gota) which is the pioneer of the DataFrame library
+in the Go language.  
+This comparison is just for the awareness of the speed of the `Gleam`, not belittle the `Gota`. 
 
  - `Gleam` around **3** times faster than `Gota` at all functions 
  - `Gleam` around **390** times faster than `Gota` at the most fastest situation
