@@ -3,13 +3,13 @@ package series
 import (
 	"context"
 	"fmt"
+	internalCompute "github.com/SHIMA0111/gleam/internal/compute"
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/compute"
 	"github.com/apache/arrow-go/v18/arrow/math"
 	"github.com/apache/arrow-go/v18/arrow/memory"
-
-	internalCompute "github.com/SHIMA0111/gleam/internal/compute"
+	"github.com/apache/arrow-go/v18/arrow/scalar"
 )
 
 const SumThreshold = 150_000
@@ -48,15 +48,10 @@ func (s *Series) Sum() (*Series, error) {
 			}
 		}
 
-		// Create a new Array builder
-		b := array.NewInt64Builder(mem)
-		defer b.Release()
-
-		// Append the result
-		b.Append(result)
-
-		// Create a new array
-		newArray = b.NewArray()
+		newArray, err = arrayFromInt64(result, mem)
+		if err != nil {
+			return nil, err
+		}
 		defer newArray.Release()
 	case arrow.INT16:
 		// Cast the data to Int64
@@ -70,15 +65,10 @@ func (s *Series) Sum() (*Series, error) {
 			}
 		}
 
-		// Create a new Array builder
-		b := array.NewInt64Builder(mem)
-		defer b.Release()
-
-		// Append the result
-		b.Append(result)
-
-		// Create a new array
-		newArray = b.NewArray()
+		newArray, err = arrayFromInt64(result, mem)
+		if err != nil {
+			return nil, err
+		}
 		defer newArray.Release()
 	case arrow.INT32:
 		// Cast the data to Int64
@@ -92,15 +82,10 @@ func (s *Series) Sum() (*Series, error) {
 			}
 		}
 
-		// Create a new Array builder
-		b := array.NewInt64Builder(mem)
-		defer b.Release()
-
-		// Append the result
-		b.Append(result)
-
-		// Create a new array
-		newArray = b.NewArray()
+		newArray, err = arrayFromInt64(result, mem)
+		if err != nil {
+			return nil, err
+		}
 		defer newArray.Release()
 	case arrow.INT64:
 		i64Array, ok := arrayData.(*array.Int64)
@@ -111,15 +96,10 @@ func (s *Series) Sum() (*Series, error) {
 		// Sum the array and the result should be int64
 		result := math.Int64.Sum(i64Array)
 
-		// Create a new Array builder
-		b := array.NewInt64Builder(mem)
-		defer b.Release()
-
-		// Append the result
-		b.Append(result)
-
-		// Create a new array
-		newArray = b.NewArray()
+		newArray, err = arrayFromInt64(result, mem)
+		if err != nil {
+			return nil, err
+		}
 		defer newArray.Release()
 	case arrow.UINT8:
 		var result uint64
@@ -133,15 +113,10 @@ func (s *Series) Sum() (*Series, error) {
 			}
 		}
 
-		// Create a new array builder
-		b := array.NewUint64Builder(mem)
-		defer b.Release()
-
-		// Append the result
-		b.Append(result)
-
-		// Create a new array
-		newArray = b.NewArray()
+		newArray, err = arrayFromUint64(result, mem)
+		if err != nil {
+			return nil, err
+		}
 		defer newArray.Release()
 	case arrow.UINT16:
 		var result uint64
@@ -155,15 +130,10 @@ func (s *Series) Sum() (*Series, error) {
 			}
 		}
 
-		// Create a new array builder
-		b := array.NewUint64Builder(mem)
-		defer b.Release()
-
-		// Append the result
-		b.Append(result)
-
-		// Create a new array
-		newArray = b.NewArray()
+		newArray, err = arrayFromUint64(result, mem)
+		if err != nil {
+			return nil, err
+		}
 		defer newArray.Release()
 	case arrow.UINT32:
 		var result uint64
@@ -174,15 +144,10 @@ func (s *Series) Sum() (*Series, error) {
 			result, err = castSumUInt(ctx, arrayData)
 		}
 
-		// Create a new array builder
-		b := array.NewUint64Builder(mem)
-		defer b.Release()
-
-		// Append the result
-		b.Append(result)
-
-		// Create a new array
-		newArray = b.NewArray()
+		newArray, err = arrayFromUint64(result, mem)
+		if err != nil {
+			return nil, err
+		}
 		defer newArray.Release()
 	case arrow.UINT64:
 		u64Array, ok := arrayData.(*array.Uint64)
@@ -193,15 +158,10 @@ func (s *Series) Sum() (*Series, error) {
 		// Calculate the sum of an array
 		result := math.Uint64.Sum(u64Array)
 
-		// Create a new array builder
-		b := array.NewUint64Builder(mem)
-		defer b.Release()
-
-		// Append the result
-		b.Append(result)
-
-		// Create a new array
-		newArray = b.NewArray()
+		newArray, err = arrayFromUint64(result, mem)
+		if err != nil {
+			return nil, err
+		}
 		defer newArray.Release()
 	case arrow.FLOAT32:
 		var result float64
@@ -212,15 +172,10 @@ func (s *Series) Sum() (*Series, error) {
 			result, err = castSumFloat(ctx, arrayData)
 		}
 
-		// Create a new array builder
-		b := array.NewFloat64Builder(mem)
-		defer b.Release()
-
-		// Append the result
-		b.Append(result)
-
-		// Create a new array
-		newArray = b.NewArray()
+		newArray, err = arrayFromFloat64(result, mem)
+		if err != nil {
+			return nil, err
+		}
 		defer newArray.Release()
 	case arrow.FLOAT64:
 		f64Array, ok := arrayData.(*array.Float64)
@@ -231,15 +186,10 @@ func (s *Series) Sum() (*Series, error) {
 		// Calculate the sum of an array
 		result := math.Float64.Sum(f64Array)
 
-		// Create a new array builder
-		b := array.NewFloat64Builder(mem)
-		defer b.Release()
-
-		// Append the result
-		b.Append(result)
-
-		// Create a new array
-		newArray = b.NewArray()
+		newArray, err = arrayFromFloat64(result, mem)
+		if err != nil {
+			return nil, err
+		}
 		defer newArray.Release()
 	default:
 		// If the data type is not supported, return an error
@@ -250,7 +200,9 @@ func (s *Series) Sum() (*Series, error) {
 }
 
 func castSumInt(ctx context.Context, arr arrow.Array) (int64, error) {
-	castedArray, err := compute.CastToType(ctx, arr, arrow.PrimitiveTypes.Int64)
+	op := compute.NewCastOptions(arrow.PrimitiveTypes.Int64, true)
+	castedArray, err := compute.CastArray(ctx, arr, op)
+
 	if err != nil {
 		return 0, err
 	}
@@ -261,7 +213,6 @@ func castSumInt(ctx context.Context, arr arrow.Array) (int64, error) {
 	if !ok {
 		return 0, fmt.Errorf("failed to cast the array to Int64 from %s: %w", arr.DataType(), err)
 	}
-	defer i64Array.Release()
 
 	return math.Int64.Sum(i64Array), nil
 }
@@ -275,8 +226,10 @@ func castSumUInt(ctx context.Context, arr arrow.Array) (uint64, error) {
 	defer castedArray.Release()
 
 	// Convert to array to *array.Uint64
-	u64Array := castedArray.(*array.Uint64)
-	defer u64Array.Release()
+	u64Array, ok := castedArray.(*array.Uint64)
+	if !ok {
+		return 0, fmt.Errorf("failed to cast the array to Uint64 from %s: %w", arr.DataType(), err)
+	}
 
 	// Calculate the sum of an array
 	return math.Uint64.Sum(u64Array), nil
@@ -290,7 +243,24 @@ func castSumFloat(ctx context.Context, arr arrow.Array) (float64, error) {
 	defer castedArray.Release()
 
 	f64Array := castedArray.(*array.Float64)
-	defer f64Array.Release()
 
 	return math.Float64.Sum(f64Array), nil
+}
+
+func arrayFromInt64(val int64, mem memory.Allocator) (arrow.Array, error) {
+	scl := scalar.NewInt64Scalar(val)
+
+	return scalar.MakeArrayFromScalar(scl, 1, mem)
+}
+
+func arrayFromUint64(val uint64, mem memory.Allocator) (arrow.Array, error) {
+	scl := scalar.NewUint64Scalar(val)
+
+	return scalar.MakeArrayFromScalar(scl, 1, mem)
+}
+
+func arrayFromFloat64(val float64, mem memory.Allocator) (arrow.Array, error) {
+	scl := scalar.NewFloat64Scalar(val)
+
+	return scalar.MakeArrayFromScalar(scl, 1, mem)
 }
