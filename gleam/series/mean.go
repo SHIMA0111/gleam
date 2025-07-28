@@ -29,7 +29,7 @@ func (s *Series) mean(ctx context.Context) (float64, error) {
 		return 0, fmt.Errorf("cannot find mean value of empty Series")
 	}
 
-	count, err := s.count(ctx)
+	count, err := s.count()
 	if err != nil {
 		return 0, err
 	}
