@@ -10,12 +10,14 @@ import (
 	"github.com/apache/arrow-go/v18/arrow/math"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/apache/arrow-go/v18/arrow/scalar"
+	"runtime"
+	"sync"
 )
 
 const SumThreshold = 150_000
 
-// Sum calculates the sum of all elements in the Series, returning the result as a new Series with 64-bit number(overflow safe).
-// Returns an error if unsupported.
+// Sum calculates the sum of all elements in the Series,
+// returning the result as a new Series with 64-bit float Series. Or, returns an error if unsupported.
 // In arrow-go, there is a math.(Int64, UInt64, Float64).Sum, which is the optimized function with assembly.
 // We use this method with cast the array data type.
 // However, in a small sum execution, the Go loop is faster than the arrow sum function
@@ -25,7 +27,7 @@ func (s *Series) Sum() (*Series, error) {
 	ctx := context.Background()
 	mem := memory.DefaultAllocator
 
-	sumVal, err := s.sum(ctx)
+	sumVal, err := s.concurrentSum(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -47,94 +49,123 @@ func (s *Series) sum(ctx context.Context) (float64, error) {
 	}
 	defer droppedArray.Release()
 
-	switch s.DType().ID() {
-	case arrow.INT8:
-		if s.Len() < SumThreshold {
-			return float64(sumInt8Array(droppedArray.(*array.Int8))), nil
-		} else {
-			if v, err := castSumInt(ctx, droppedArray); err == nil {
-				return float64(v), nil
+	return sum(ctx, droppedArray)
+}
+
+func (s *Series) concurrentSum(ctx context.Context) (float64, error) {
+	droppedArray, err := internalCompute.DropNullArray(ctx, s.array)
+	if err != nil {
+		return 0, err
+	}
+	defer droppedArray.Release()
+
+	// Go non-float number division works as a truncation float point so add 1
+	chunkSize := s.Len()/runtime.NumCPU() + 1
+
+	floatChan := make(chan float64, runtime.NumCPU())
+	var wg sync.WaitGroup
+
+	for i := 0; i < s.Len(); i += chunkSize {
+		wg.Add(1)
+		end := i + chunkSize
+		if end > s.Len() {
+			end = s.Len()
+		}
+
+		arrowView := array.NewSlice(s.array, int64(i), int64(end))
+		go func() {
+			sumVal, err := sum(ctx, arrowView)
+			if err != nil {
+				panic(err)
 			}
-			return 0, err
+			floatChan <- sumVal
+			wg.Done()
+			arrowView.Release()
+		}()
+	}
+
+	wg.Wait()
+	close(floatChan)
+
+	total := 0.
+	for res := range floatChan {
+		total += res
+	}
+
+	return total, nil
+}
+
+func sum(ctx context.Context, arr arrow.Array) (float64, error) {
+	switch arr.DataType().ID() {
+	case arrow.INT8:
+		if arr.Len() < SumThreshold {
+			return checkOverflowAndConvertToFloat64(sumInt8Array(arr.(*array.Int8)))
+		} else {
+			return castSumInt(ctx, arr)
 		}
 	case arrow.INT16:
-		if s.Len() < SumThreshold {
-			return float64(sumInt16Array(droppedArray.(*array.Int16))), nil
+		if arr.Len() < SumThreshold {
+			return checkOverflowAndConvertToFloat64(sumInt16Array(arr.(*array.Int16)))
 		} else {
-			if v, err := castSumInt(ctx, droppedArray); err == nil {
-				return float64(v), nil
-			}
-			return 0, err
+			return castSumInt(ctx, arr)
 		}
 	case arrow.INT32:
-		if s.Len() < SumThreshold {
-			return float64(sumInt32Array(droppedArray.(*array.Int32))), nil
+		if arr.Len() < SumThreshold {
+			return checkOverflowAndConvertToFloat64(sumInt32Array(arr.(*array.Int32)))
 		} else {
-			if v, err := castSumInt(ctx, droppedArray); err == nil {
-				return float64(v), nil
-			}
-			return 0, err
+			return castSumInt(ctx, arr)
 		}
 	case arrow.INT64:
-		i64Array, ok := droppedArray.(*array.Int64)
+		i64Array, ok := arr.(*array.Int64)
 		if !ok {
-			return 0, fmt.Errorf("failed to cast the array to Int64 from %s: %w", s.DType(), err)
+			return 0, fmt.Errorf("failed to cast the array to Int64 from %s", arr.DataType())
 		}
 
-		return float64(math.Int64.Sum(i64Array)), nil
+		return checkOverflowAndConvertToFloat64[int64](math.Int64.Sum(i64Array))
 	case arrow.UINT8:
-		if s.Len() < SumThreshold {
-			return float64(sumUInt8Array(droppedArray.(*array.Uint8))), nil
+		if arr.Len() < SumThreshold {
+			return checkOverflowAndConvertToFloat64(sumUInt8Array(arr.(*array.Uint8)))
 		} else {
-			if v, err := castSumUInt(ctx, droppedArray); err == nil {
-				return float64(v), nil
-			}
-			return 0, err
+			return castSumUInt(ctx, arr)
 		}
 	case arrow.UINT16:
-		if s.Len() < SumThreshold {
-			return float64(sumUInt16Array(droppedArray.(*array.Uint16))), nil
+		if arr.Len() < SumThreshold {
+			return checkOverflowAndConvertToFloat64(sumUInt16Array(arr.(*array.Uint16)))
 		} else {
-			if v, err := castSumUInt(ctx, droppedArray); err == nil {
-				return float64(v), nil
-			}
-			return 0, err
+			return castSumUInt(ctx, arr)
 		}
 	case arrow.UINT32:
-		if s.Len() < SumThreshold {
-			return float64(sumUInt32Array(droppedArray.(*array.Uint32))), nil
+		if arr.Len() < SumThreshold {
+			return checkOverflowAndConvertToFloat64(sumUInt32Array(arr.(*array.Uint32)))
 		} else {
-			if v, err := castSumUInt(ctx, droppedArray); err == nil {
-				return float64(v), nil
-			}
-			return 0, err
+			return castSumUInt(ctx, arr)
 		}
 	case arrow.UINT64:
-		u64Array, ok := droppedArray.(*array.Uint64)
+		u64Array, ok := arr.(*array.Uint64)
 		if !ok {
-			return 0, fmt.Errorf("failed to cast the array to Uint64 from %s: %w", s.DType(), err)
+			return 0, fmt.Errorf("failed to cast the array to Uint64 from %s", arr.DataType())
 		}
 
-		return float64(math.Uint64.Sum(u64Array)), nil
+		return checkOverflowAndConvertToFloat64(math.Uint64.Sum(u64Array))
 	case arrow.FLOAT32:
-		if s.Len() < SumThreshold {
-			return sumFloat32Array(droppedArray.(*array.Float32)), nil
+		if arr.Len() < SumThreshold {
+			return checkOverflowAndConvertToFloat64(sumFloat32Array(arr.(*array.Float32)))
 		} else {
-			return castSumFloat(ctx, droppedArray)
+			return castSumFloat(ctx, arr)
 		}
 	case arrow.FLOAT64:
-		f64Array, ok := droppedArray.(*array.Float64)
+		f64Array, ok := arr.(*array.Float64)
 		if !ok {
-			return 0, fmt.Errorf("failed to cast the array to Float64 from %s: %w", s.DType(), err)
+			return 0, fmt.Errorf("failed to cast the array to Float64 from %s", arr.DataType())
 		}
 
-		return math.Float64.Sum(f64Array), nil
+		return checkOverflowAndConvertToFloat64(math.Float64.Sum(f64Array))
 	default:
-		return 0, fmt.Errorf("sum is not supported for %s", s.DType())
+		return 0, fmt.Errorf("sum is not supported for %s", arr.DataType())
 	}
 }
 
-func castSumInt(ctx context.Context, arr arrow.Array) (int64, error) {
+func castSumInt(ctx context.Context, arr arrow.Array) (float64, error) {
 	op := compute.NewCastOptions(arrow.PrimitiveTypes.Int64, true)
 	castedArray, err := compute.CastArray(ctx, arr, op)
 
@@ -148,11 +179,17 @@ func castSumInt(ctx context.Context, arr arrow.Array) (int64, error) {
 	if !ok {
 		return 0, fmt.Errorf("failed to cast the array to Int64 from %s: %w", arr.DataType(), err)
 	}
+	sumIntValue := math.Int64.Sum(i64Array)
 
-	return math.Int64.Sum(i64Array), nil
+	// To abstraction, all sum functions return float64, but float64's significant digits are 53 digits
+	// 53 digits are enough in the real world because the value is a cornucopia
+	if 1<<53 <= sumIntValue {
+		return 0, fmt.Errorf("overflow: %d", sumIntValue)
+	}
+	return checkOverflowAndConvertToFloat64[int64](sumIntValue)
 }
 
-func castSumUInt(ctx context.Context, arr arrow.Array) (uint64, error) {
+func castSumUInt(ctx context.Context, arr arrow.Array) (float64, error) {
 	// Cast the data to UInt64
 	castedArray, err := compute.CastToType(ctx, arr, arrow.PrimitiveTypes.Uint64)
 	if err != nil {
@@ -165,9 +202,9 @@ func castSumUInt(ctx context.Context, arr arrow.Array) (uint64, error) {
 	if !ok {
 		return 0, fmt.Errorf("failed to cast the array to Uint64 from %s: %w", arr.DataType(), err)
 	}
+	sumUIntValue := math.Uint64.Sum(u64Array)
 
-	// Calculate the sum of an array
-	return math.Uint64.Sum(u64Array), nil
+	return checkOverflowAndConvertToFloat64[uint64](sumUIntValue)
 }
 
 func castSumFloat(ctx context.Context, arr arrow.Array) (float64, error) {
@@ -178,6 +215,7 @@ func castSumFloat(ctx context.Context, arr arrow.Array) (float64, error) {
 	defer castedArray.Release()
 
 	f64Array := castedArray.(*array.Float64)
+	sumFloatValue := math.Float64.Sum(f64Array)
 
-	return math.Float64.Sum(f64Array), nil
+	return checkOverflowAndConvertToFloat64[float64](sumFloatValue)
 }
