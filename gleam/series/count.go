@@ -2,20 +2,16 @@ package series
 
 import (
 	"github.com/apache/arrow-go/v18/arrow/scalar"
-
-	"github.com/apache/arrow-go/v18/arrow/memory"
 )
 
 func (s *Series) Count() (*Series, error) {
-	mem := memory.DefaultAllocator
-
 	count, err := s.count()
 	if err != nil {
 		return nil, err
 	}
 
 	scl := scalar.NewInt64Scalar(count)
-	newArray, err := scalar.MakeArrayFromScalar(scl, 1, mem)
+	newArray, err := scalar.MakeArrayFromScalar(scl, 1, s.mem)
 	if err != nil {
 		return nil, err
 	}

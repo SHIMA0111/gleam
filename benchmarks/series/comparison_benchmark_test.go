@@ -1,7 +1,7 @@
 package series
 
 import (
-	series2 "github.com/SHIMA0111/gleam/gleam/series"
+	"github.com/SHIMA0111/gleam/gleam/utils"
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/go-gota/gota/series"
 	"testing"
@@ -22,7 +22,7 @@ func BenchmarkComparison_Small_Int8(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int8(50))
+		result, err := data.Comparison(utils.Greater, int8(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -61,7 +61,7 @@ func BenchmarkComparison_Medium_Int8(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int8(50))
+		result, err := data.Comparison(utils.Greater, int8(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -105,7 +105,7 @@ func BenchmarkComparison_Large_Int8(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int8(50))
+		result, err := data.Comparison(utils.Greater, int8(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -148,7 +148,7 @@ func BenchmarkComparison_Small_Int16(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int16(50))
+		result, err := data.Comparison(utils.Greater, int16(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -185,7 +185,7 @@ func BenchmarkComparison_Medium_Int16(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int16(50))
+		result, err := data.Comparison(utils.Greater, int16(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -227,7 +227,7 @@ func BenchmarkComparison_Large_Int16(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int16(50))
+		result, err := data.Comparison(utils.Greater, int16(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -270,7 +270,7 @@ func BenchmarkComparison_Small_Int32(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int32(50))
+		result, err := data.Comparison(utils.Greater, int32(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -307,7 +307,7 @@ func BenchmarkComparison_Medium_Int32(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int32(50))
+		result, err := data.Comparison(utils.Greater, int32(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -349,7 +349,7 @@ func BenchmarkComparison_Large_Int32(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int32(50))
+		result, err := data.Comparison(utils.Greater, int32(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -392,7 +392,7 @@ func BenchmarkComparison_Small_Int64(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int64(50))
+		result, err := data.Comparison(utils.Greater, int64(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -429,7 +429,7 @@ func BenchmarkComparison_Medium_Int64(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int64(50))
+		result, err := data.Comparison(utils.Greater, int64(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -471,7 +471,7 @@ func BenchmarkComparison_Large_Int64(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, int64(50))
+		result, err := data.Comparison(utils.Greater, int64(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -514,7 +514,7 @@ func BenchmarkComparison_Small_Uint8(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint8(50))
+		result, err := data.Comparison(utils.Greater, uint8(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -551,7 +551,7 @@ func BenchmarkComparison_Medium_Uint8(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint8(50))
+		result, err := data.Comparison(utils.Greater, uint8(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -593,7 +593,7 @@ func BenchmarkComparison_Large_Uint8(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint8(50))
+		result, err := data.Comparison(utils.Greater, uint8(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -636,7 +636,7 @@ func BenchmarkComparison_Small_Uint16(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint16(50))
+		result, err := data.Comparison(utils.Greater, uint16(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -673,7 +673,7 @@ func BenchmarkComparison_Medium_Uint16(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint16(50))
+		result, err := data.Comparison(utils.Greater, uint16(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -715,7 +715,7 @@ func BenchmarkComparison_Large_Uint16(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint16(50))
+		result, err := data.Comparison(utils.Greater, uint16(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -758,7 +758,7 @@ func BenchmarkComparison_Small_Uint32(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint32(50))
+		result, err := data.Comparison(utils.Greater, uint32(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -795,7 +795,7 @@ func BenchmarkComparison_Medium_Uint32(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint32(50))
+		result, err := data.Comparison(utils.Greater, uint32(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -837,7 +837,7 @@ func BenchmarkComparison_Large_Uint32(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint32(50))
+		result, err := data.Comparison(utils.Greater, uint32(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -880,7 +880,7 @@ func BenchmarkComparison_Small_Uint64(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint64(50))
+		result, err := data.Comparison(utils.Greater, uint64(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -917,7 +917,7 @@ func BenchmarkComparison_Medium_Uint64(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint64(50))
+		result, err := data.Comparison(utils.Greater, uint64(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -959,7 +959,7 @@ func BenchmarkComparison_Large_Uint64(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, uint64(50))
+		result, err := data.Comparison(utils.Greater, uint64(50))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1002,7 +1002,7 @@ func BenchmarkComparison_Small_Float32(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, float32(50.0))
+		result, err := data.Comparison(utils.Greater, float32(50.0))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1039,7 +1039,7 @@ func BenchmarkComparison_Medium_Float32(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, float32(50.0))
+		result, err := data.Comparison(utils.Greater, float32(50.0))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1081,7 +1081,7 @@ func BenchmarkComparison_Large_Float32(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, float32(50.0))
+		result, err := data.Comparison(utils.Greater, float32(50.0))
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1124,7 +1124,7 @@ func BenchmarkComparison_Small_Float64(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, 50.0)
+		result, err := data.Comparison(utils.Greater, 50.0)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1161,7 +1161,7 @@ func BenchmarkComparison_Medium_Float64(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, 50.0)
+		result, err := data.Comparison(utils.Greater, 50.0)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -1203,7 +1203,7 @@ func BenchmarkComparison_Large_Float64(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		// Compare values greater than 50
-		result, err := data.Comparison(series2.Greater, 50.0)
+		result, err := data.Comparison(utils.Greater, 50.0)
 		if err != nil {
 			b.Fatal(err)
 		}

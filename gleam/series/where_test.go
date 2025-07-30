@@ -1,6 +1,7 @@
 package series
 
 import (
+	"github.com/SHIMA0111/gleam/gleam/utils"
 	"strconv"
 	"testing"
 
@@ -28,7 +29,7 @@ func TestSeries_Where(t *testing.T) {
 		defer s.Release()
 
 		// Filter where values equal 3
-		result, err := s.Where(Equal, int64(3))
+		result, err := s.Where(utils.Equal, int64(3))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -61,7 +62,7 @@ func TestSeries_Where(t *testing.T) {
 		defer s.Release()
 
 		// Filter where values greater than 3
-		result, err := s.Where(Greater, int64(3))
+		result, err := s.Where(utils.Greater, int64(3))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -94,7 +95,7 @@ func TestSeries_Where(t *testing.T) {
 		defer s.Release()
 
 		// Filter where values less than or equal to 3.3
-		result, err := s.Where(LessEqual, 3.3)
+		result, err := s.Where(utils.LessEqual, 3.3)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -130,7 +131,7 @@ func TestSeries_Where(t *testing.T) {
 		defer s.Release()
 
 		// Filter where values not equal to "cherry"
-		result, err := s.Where(NotEqual, "cherry")
+		result, err := s.Where(utils.NotEqual, "cherry")
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -166,7 +167,7 @@ func TestSeries_Where(t *testing.T) {
 		defer s.Release()
 
 		// Filter where values equal true
-		result, err := s.Where(Equal, true)
+		result, err := s.Where(utils.Equal, true)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -203,7 +204,7 @@ func TestSeries_Where(t *testing.T) {
 		defer s.Release()
 
 		// Filter where values greater than 2
-		result, err := s.Where(Greater, int32(2))
+		result, err := s.Where(utils.Greater, int32(2))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -239,7 +240,7 @@ func TestSeries_Where(t *testing.T) {
 		defer s.Release()
 
 		// Try to filter with a string value (type mismatch)
-		_, err := s.Where(Equal, "3")
+		_, err := s.Where(utils.Equal, "3")
 		if err == nil {
 			t.Fatalf("expected type mismatch error, got nil")
 		}
@@ -260,7 +261,7 @@ func TestSeries_Where(t *testing.T) {
 		defer s.Release()
 
 		// Filter where values greater than or equal to 3
-		result, err := s.Where(GreaterEqual, int32(3))
+		result, err := s.Where(utils.GreaterEqual, int32(3))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -296,7 +297,7 @@ func TestSeries_Where(t *testing.T) {
 		defer s.Release()
 
 		// Filter where values less than 3.3
-		result, err := s.Where(Less, float32(3.3))
+		result, err := s.Where(utils.Less, float32(3.3))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -332,7 +333,7 @@ func TestSeries_Where(t *testing.T) {
 		defer s.Release()
 
 		// Try to filter with a complex value (unsupported type)
-		_, err := s.Where(Equal, complex(1, 2))
+		_, err := s.Where(utils.Equal, complex(1, 2))
 		if err == nil {
 			t.Fatalf("expected unsupported type error, got nil")
 		}

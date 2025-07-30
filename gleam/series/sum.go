@@ -2,19 +2,15 @@ package series
 
 import (
 	"context"
-	"fmt"
-	internalCompute "github.com/SHIMA0111/gleam/internal/compute"
-	"github.com/apache/arrow-go/v18/arrow"
+	internalCompute "github.com/SHIMA0111/gleam/internal/compute/array"
 	"github.com/apache/arrow-go/v18/arrow/array"
-	"github.com/apache/arrow-go/v18/arrow/compute"
-	"github.com/apache/arrow-go/v18/arrow/math"
-	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/apache/arrow-go/v18/arrow/scalar"
 	"runtime"
 	"sync"
 )
 
 const SumThreshold = 150_000
+const ConcurrentSumThreshold = 100_000
 
 // Sum calculates the sum of all elements in the Series,
 // returning the result as a new Series with 64-bit float Series. Or, returns an error if unsupported.
@@ -25,15 +21,22 @@ const SumThreshold = 150_000
 // Sum uses a threshold to judge the sum operation method, go loop and cast and arrow sum.
 func (s *Series) Sum() (*Series, error) {
 	ctx := context.Background()
-	mem := memory.DefaultAllocator
 
-	sumVal, err := s.concurrentSum(ctx)
+	var sumVal float64
+	var err error
+
+	if s.Len() < ConcurrentSumThreshold {
+		sumVal, err = s.sum(ctx)
+	} else {
+		sumVal, err = s.concurrentSum(ctx)
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
 	scl := scalar.NewFloat64Scalar(sumVal)
-	newArray, err := scalar.MakeArrayFromScalar(scl, 1, mem)
+	newArray, err := scalar.MakeArrayFromScalar(scl, 1, s.mem)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +45,7 @@ func (s *Series) Sum() (*Series, error) {
 	return NewSeries(s.name, newArray), nil
 }
 
+// sum computes the total sum of non-null elements in the Series and returns the result as a float64 or an error if failed.
 func (s *Series) sum(ctx context.Context) (float64, error) {
 	droppedArray, err := internalCompute.DropNullArray(ctx, s.array)
 	if err != nil {
@@ -49,9 +53,11 @@ func (s *Series) sum(ctx context.Context) (float64, error) {
 	}
 	defer droppedArray.Release()
 
-	return sum(ctx, droppedArray)
+	return internalCompute.Sum(ctx, droppedArray)
 }
 
+// concurrentSum computes the sum of the series concurrently using multiple goroutines for better performance.
+// It returns the total sum as a float64 or an error if the computation fails.
 func (s *Series) concurrentSum(ctx context.Context) (float64, error) {
 	droppedArray, err := internalCompute.DropNullArray(ctx, s.array)
 	if err != nil {
@@ -74,7 +80,7 @@ func (s *Series) concurrentSum(ctx context.Context) (float64, error) {
 
 		arrowView := array.NewSlice(s.array, int64(i), int64(end))
 		go func() {
-			sumVal, err := sum(ctx, arrowView)
+			sumVal, err := internalCompute.Sum(ctx, arrowView)
 			if err != nil {
 				panic(err)
 			}
@@ -93,129 +99,4 @@ func (s *Series) concurrentSum(ctx context.Context) (float64, error) {
 	}
 
 	return total, nil
-}
-
-func sum(ctx context.Context, arr arrow.Array) (float64, error) {
-	switch arr.DataType().ID() {
-	case arrow.INT8:
-		if arr.Len() < SumThreshold {
-			return checkOverflowAndConvertToFloat64(sumInt8Array(arr.(*array.Int8)))
-		} else {
-			return castSumInt(ctx, arr)
-		}
-	case arrow.INT16:
-		if arr.Len() < SumThreshold {
-			return checkOverflowAndConvertToFloat64(sumInt16Array(arr.(*array.Int16)))
-		} else {
-			return castSumInt(ctx, arr)
-		}
-	case arrow.INT32:
-		if arr.Len() < SumThreshold {
-			return checkOverflowAndConvertToFloat64(sumInt32Array(arr.(*array.Int32)))
-		} else {
-			return castSumInt(ctx, arr)
-		}
-	case arrow.INT64:
-		i64Array, ok := arr.(*array.Int64)
-		if !ok {
-			return 0, fmt.Errorf("failed to cast the array to Int64 from %s", arr.DataType())
-		}
-
-		return checkOverflowAndConvertToFloat64[int64](math.Int64.Sum(i64Array))
-	case arrow.UINT8:
-		if arr.Len() < SumThreshold {
-			return checkOverflowAndConvertToFloat64(sumUInt8Array(arr.(*array.Uint8)))
-		} else {
-			return castSumUInt(ctx, arr)
-		}
-	case arrow.UINT16:
-		if arr.Len() < SumThreshold {
-			return checkOverflowAndConvertToFloat64(sumUInt16Array(arr.(*array.Uint16)))
-		} else {
-			return castSumUInt(ctx, arr)
-		}
-	case arrow.UINT32:
-		if arr.Len() < SumThreshold {
-			return checkOverflowAndConvertToFloat64(sumUInt32Array(arr.(*array.Uint32)))
-		} else {
-			return castSumUInt(ctx, arr)
-		}
-	case arrow.UINT64:
-		u64Array, ok := arr.(*array.Uint64)
-		if !ok {
-			return 0, fmt.Errorf("failed to cast the array to Uint64 from %s", arr.DataType())
-		}
-
-		return checkOverflowAndConvertToFloat64(math.Uint64.Sum(u64Array))
-	case arrow.FLOAT32:
-		if arr.Len() < SumThreshold {
-			return checkOverflowAndConvertToFloat64(sumFloat32Array(arr.(*array.Float32)))
-		} else {
-			return castSumFloat(ctx, arr)
-		}
-	case arrow.FLOAT64:
-		f64Array, ok := arr.(*array.Float64)
-		if !ok {
-			return 0, fmt.Errorf("failed to cast the array to Float64 from %s", arr.DataType())
-		}
-
-		return checkOverflowAndConvertToFloat64(math.Float64.Sum(f64Array))
-	default:
-		return 0, fmt.Errorf("sum is not supported for %s", arr.DataType())
-	}
-}
-
-func castSumInt(ctx context.Context, arr arrow.Array) (float64, error) {
-	op := compute.NewCastOptions(arrow.PrimitiveTypes.Int64, true)
-	castedArray, err := compute.CastArray(ctx, arr, op)
-
-	if err != nil {
-		return 0, err
-	}
-	defer castedArray.Release()
-
-	// Cast arrow.array to *array.Int64
-	i64Array, ok := castedArray.(*array.Int64)
-	if !ok {
-		return 0, fmt.Errorf("failed to cast the array to Int64 from %s: %w", arr.DataType(), err)
-	}
-	sumIntValue := math.Int64.Sum(i64Array)
-
-	// To abstraction, all sum functions return float64, but float64's significant digits are 53 digits
-	// 53 digits are enough in the real world because the value is a cornucopia
-	if 1<<53 <= sumIntValue {
-		return 0, fmt.Errorf("overflow: %d", sumIntValue)
-	}
-	return checkOverflowAndConvertToFloat64[int64](sumIntValue)
-}
-
-func castSumUInt(ctx context.Context, arr arrow.Array) (float64, error) {
-	// Cast the data to UInt64
-	castedArray, err := compute.CastToType(ctx, arr, arrow.PrimitiveTypes.Uint64)
-	if err != nil {
-		return 0, err
-	}
-	defer castedArray.Release()
-
-	// Convert to array to *array.Uint64
-	u64Array, ok := castedArray.(*array.Uint64)
-	if !ok {
-		return 0, fmt.Errorf("failed to cast the array to Uint64 from %s: %w", arr.DataType(), err)
-	}
-	sumUIntValue := math.Uint64.Sum(u64Array)
-
-	return checkOverflowAndConvertToFloat64[uint64](sumUIntValue)
-}
-
-func castSumFloat(ctx context.Context, arr arrow.Array) (float64, error) {
-	castedArray, err := compute.CastToType(ctx, arr, arrow.PrimitiveTypes.Float64)
-	if err != nil {
-		return 0, err
-	}
-	defer castedArray.Release()
-
-	f64Array := castedArray.(*array.Float64)
-	sumFloatValue := math.Float64.Sum(f64Array)
-
-	return checkOverflowAndConvertToFloat64[float64](sumFloatValue)
 }

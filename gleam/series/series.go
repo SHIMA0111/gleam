@@ -3,6 +3,7 @@ package series
 import (
 	"fmt"
 	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/memory"
 )
 
 // Series represents a named collection of data stored as an Arrow array.
@@ -11,16 +12,22 @@ type Series struct {
 	array    arrow.Array
 	name     string
 	datatype arrow.DataType
+	mem      memory.Allocator
 }
 
 // NewSeries creates a new Series with the specified name from the given Arrow array. The array's reference count is retained.
 func NewSeries(name string, array arrow.Array) *Series {
+	return NewSeriesWithAllocator(name, array, memory.DefaultAllocator)
+}
+
+func NewSeriesWithAllocator(name string, array arrow.Array, mem memory.Allocator) *Series {
 	array.Retain()
 
 	return &Series{
 		array:    array,
 		name:     name,
 		datatype: array.DataType(),
+		mem:      mem,
 	}
 }
 

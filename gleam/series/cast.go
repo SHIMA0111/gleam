@@ -57,7 +57,7 @@ func (dt DataType) dataType() arrow.DataType {
 	}
 }
 
-// Cast changes the data type of a Series to the specified dtype if a valid conversion exists, returning a new Series.
+// Cast changes the data type of Series to the specified dtype if a valid conversion exists, returning a new Series.
 func (s *Series) Cast(dtype DataType) (*Series, error) {
 	if dtype == Unsupported {
 		return nil, fmt.Errorf("cannot convert unsupported data type")

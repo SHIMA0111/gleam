@@ -18,15 +18,15 @@ Please check [Benchmark Result](benchmark_results.md)
 ## Load map for development
 ### v0.1.0
 #### Core Data Structure
- - [ ] `DataFrame` and `Series` structures
+ - [x] `DataFrame` and `Series` structures
 #### I/O
  - [ ] `ReadCSV` to load data from CSV files, including support for schema inference
  - [ ] `NewDataFrame` from Go slice
  - [ ] `String` for pretty-printing a DataFrame
  - [ ] `WriteCSV` to write data to CSV file
 #### Operations
- - [ ] `Select` to select column(s)
- - [ ] `Where` to filter row
+ - [x] `Select` to select column(s)
+ - [x] `Where` to filter row
  - [ ] `Sum`, `Mean`, `Min`, `Max`, `Count` basic column-wise aggregations
  - [ ] `Sort` to sort the DataFrame by one or more columns
  - [ ] `Drop` to remove column(s)

@@ -37,9 +37,14 @@ func (s *Series) mean(ctx context.Context) (float64, error) {
 		return 0, nil
 	}
 
-	sum, err := s.sum(ctx)
+	var sumVal float64
+	if s.Len() < ConcurrentSumThreshold {
+		sumVal, err = s.sum(ctx)
+	} else {
+		sumVal, err = s.concurrentSum(ctx)
+	}
 	if err != nil {
 		return 0, err
 	}
-	return sum / float64(count), nil
+	return sumVal / float64(count), nil
 }
