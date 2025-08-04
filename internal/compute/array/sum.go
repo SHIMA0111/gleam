@@ -3,13 +3,32 @@ package array
 import (
 	"context"
 	"fmt"
-	"github.com/SHIMA0111/gleam/internal/utils"
+
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/math"
+	"github.com/apache/arrow-go/v18/arrow/memory"
+	"github.com/apache/arrow-go/v18/arrow/scalar"
+
+	"github.com/SHIMA0111/gleam/internal/utils"
 )
 
 const SumThreshold = 150_000
+
+func SumArray(ctx context.Context, arr arrow.Array, mem memory.Allocator) (arrow.Array, error) {
+	f64Sum, err := Sum(ctx, arr)
+	if err != nil {
+		return nil, err
+	}
+
+	scl := scalar.NewFloat64Scalar(f64Sum)
+	resArr, err := scalar.MakeArrayFromScalar(scl, 1, mem)
+	if err != nil {
+		return nil, err
+	}
+
+	return resArr, nil
+}
 
 func Sum(ctx context.Context, arr arrow.Array) (float64, error) {
 	switch arr.DataType().ID() {

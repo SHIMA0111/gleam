@@ -3,13 +3,13 @@ package series
 import (
 	"context"
 	internalCompute "github.com/SHIMA0111/gleam/internal/compute/array"
+	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/scalar"
 	"runtime"
 	"sync"
 )
 
-const SumThreshold = 150_000
 const ConcurrentSumThreshold = 100_000
 
 // Sum calculates the sum of all elements in the Series,
@@ -22,46 +22,36 @@ const ConcurrentSumThreshold = 100_000
 func (s *Series) Sum() (*Series, error) {
 	ctx := context.Background()
 
-	var sumVal float64
+	var sumArr arrow.Array
 	var err error
 
 	if s.Len() < ConcurrentSumThreshold {
-		sumVal, err = s.sum(ctx)
+		sumArr, err = s.sum(ctx)
 	} else {
-		sumVal, err = s.concurrentSum(ctx)
+		sumArr, err = s.concurrentSum(ctx)
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	scl := scalar.NewFloat64Scalar(sumVal)
-	newArray, err := scalar.MakeArrayFromScalar(scl, 1, s.mem)
-	if err != nil {
-		return nil, err
-	}
-	defer newArray.Release()
-
-	return NewSeries(s.name, newArray), nil
+	return NewSeries(s.name, sumArr), nil
 }
 
-// sum computes the total sum of non-null elements in the Series and returns the result as a float64 or an error if failed.
-func (s *Series) sum(ctx context.Context) (float64, error) {
+func (s *Series) sum(ctx context.Context) (arrow.Array, error) {
 	droppedArray, err := internalCompute.DropNullArray(ctx, s.array)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer droppedArray.Release()
 
-	return internalCompute.Sum(ctx, droppedArray)
+	return internalCompute.SumArray(ctx, droppedArray, s.mem)
 }
 
-// concurrentSum computes the sum of the series concurrently using multiple goroutines for better performance.
-// It returns the total sum as a float64 or an error if the computation fails.
-func (s *Series) concurrentSum(ctx context.Context) (float64, error) {
+func (s *Series) concurrentSum(ctx context.Context) (arrow.Array, error) {
 	droppedArray, err := internalCompute.DropNullArray(ctx, s.array)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer droppedArray.Release()
 
@@ -98,5 +88,8 @@ func (s *Series) concurrentSum(ctx context.Context) (float64, error) {
 		total += res
 	}
 
-	return total, nil
+	scl := scalar.NewFloat64Scalar(total)
+	newArray, err := scalar.MakeArrayFromScalar(scl, 1, s.mem)
+
+	return newArray, nil
 }

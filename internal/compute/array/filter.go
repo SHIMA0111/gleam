@@ -3,6 +3,7 @@ package array
 import (
 	"context"
 	"fmt"
+
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/compute"
 )

@@ -3,6 +3,7 @@ package series
 import (
 	"context"
 	"fmt"
+	"github.com/SHIMA0111/gleam/internal/compute/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 	"github.com/apache/arrow-go/v18/arrow/scalar"
 )
@@ -37,12 +38,7 @@ func (s *Series) mean(ctx context.Context) (float64, error) {
 		return 0, nil
 	}
 
-	var sumVal float64
-	if s.Len() < ConcurrentSumThreshold {
-		sumVal, err = s.sum(ctx)
-	} else {
-		sumVal, err = s.concurrentSum(ctx)
-	}
+	sumVal, err := array.Sum(ctx, s.array)
 	if err != nil {
 		return 0, err
 	}
