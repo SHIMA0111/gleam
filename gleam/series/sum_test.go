@@ -409,6 +409,51 @@ func TestSeries_Sum(t *testing.T) {
 		_ = resultArr.Value(0) // This ensures we can access the value without asserting what it should be
 	})
 
+	t.Run("concurrent sum with nulls", func(t *testing.T) {
+		builder := array.NewInt64Builder(mem)
+		defer builder.Release()
+
+		n := ConcurrentSumThreshold + 1
+		values := make([]int64, n)
+		valid := make([]bool, n)
+		for i := 0; i < n; i++ {
+			values[i] = int64(i + 1)
+			valid[i] = true
+		}
+
+		// introduce some nulls with large placeholder values
+		values[123] = 1_000_000
+		valid[123] = false
+		values[n-2] = 2_000_000
+		valid[n-2] = false
+
+		builder.AppendValues(values, valid)
+		arr := builder.NewArray()
+		defer arr.Release()
+
+		s := NewSeries("concurrent", arr)
+		defer s.Release()
+
+		result, err := s.Sum()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		defer result.Release()
+
+		resultArr := result.array.(*array.Float64)
+
+		var expected int64
+		for i, v := range values {
+			if valid[i] {
+				expected += v
+			}
+		}
+
+		if resultArr.Value(0) != float64(expected) {
+			t.Errorf("expected sum %d, got %f", expected, resultArr.Value(0))
+		}
+	})
+
 	// Note: Overflow tests have been removed since the Sum function now returns 64-bit types,
 	// which can handle much larger values without overflow.
 

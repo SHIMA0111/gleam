@@ -56,28 +56,29 @@ func (s *Series) concurrentSum(ctx context.Context) (arrow.Array, error) {
 	defer droppedArray.Release()
 
 	// Go non-float number division works as a truncation float point so add 1
-	chunkSize := s.Len()/runtime.NumCPU() + 1
+	length := droppedArray.Len()
+	chunkSize := length/runtime.NumCPU() + 1
 
 	floatChan := make(chan float64, runtime.NumCPU())
 	var wg sync.WaitGroup
 
-	for i := 0; i < s.Len(); i += chunkSize {
+	for i := 0; i < length; i += chunkSize {
 		wg.Add(1)
 		end := i + chunkSize
-		if end > s.Len() {
-			end = s.Len()
+		if end > length {
+			end = length
 		}
 
-		arrowView := array.NewSlice(s.array, int64(i), int64(end))
-		go func() {
-			sumVal, err := internalCompute.Sum(ctx, arrowView)
+		arrowView := array.NewSlice(droppedArray, int64(i), int64(end))
+		go func(av arrow.Array) {
+			sumVal, err := internalCompute.Sum(ctx, av)
 			if err != nil {
 				panic(err)
 			}
 			floatChan <- sumVal
+			av.Release()
 			wg.Done()
-			arrowView.Release()
-		}()
+		}(arrowView)
 	}
 
 	wg.Wait()
