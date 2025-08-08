@@ -1,646 +1,315 @@
 package dataframe
 
 import (
-	"strings"
+	"sync"
 	"testing"
 
 	"github.com/SHIMA0111/gleam/gleam/series"
+	"github.com/SHIMA0111/gleam/gleam/utils"
+	"github.com/apache/arrow-go/v18/arrow"
+	"github.com/apache/arrow-go/v18/arrow/array"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 )
 
-func TestDataFrame_Where(t *testing.T) {
-	// Setup memory allocator
+func TestDataFrameWhere(t *testing.T) {
 	mem := memory.NewGoAllocator()
 
-	t.Run("filter with equal condition on int64", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []int64{1, 2, 3, 4, 5},
-			"col2": []float64{1.1, 2.2, 3.3, 4.4, 5.5},
-		})
+	b1 := array.NewInt64Builder(mem)
+	b2 := array.NewFloat64Builder(mem)
+	b1.AppendValues([]int64{1, 2, 3, 4, 5}, nil)
+	b2.AppendValues([]float64{1.1, 2.2, 3.3, 4.4, 5.5}, nil)
+	arr1 := b1.NewArray()
+	arr2 := b2.NewArray()
+	b1.Release()
+	b2.Release()
+
+	df, err := NewDataFrame([]arrow.Array{arr1, arr2}, []string{"col1", "col2"})
+	if err != nil {
+		t.Fatalf("failed to create dataframe: %v", err)
+	}
+	defer df.Release()
+
+	s := series.NewSeries("col1", df.columns[0])
+	defer s.Release()
+
+	filter, err := s.Comparison(utils.Greater, int64(2))
+	if err != nil {
+		t.Fatalf("comparison failed: %v", err)
+	}
+	defer filter.Release()
+
+	res, err := df.Where(filter)
+	if err != nil {
+		t.Fatalf("where failed: %v", err)
+	}
+	defer res.Release()
+
+	if res.numRows != 3 {
+		t.Fatalf("expected 3 rows, got %d", res.numRows)
+	}
+
+	intCol := res.columns[0].(*array.Int64)
+	floatCol := res.columns[1].(*array.Float64)
+	expectedInts := []int64{3, 4, 5}
+	expectedFloats := []float64{3.3, 4.4, 5.5}
+	for i := 0; i < 3; i++ {
+		if intCol.Value(i) != expectedInts[i] {
+			t.Errorf("col1[%d] = %d, want %d", i, intCol.Value(i), expectedInts[i])
+		}
+		if floatCol.Value(i) != expectedFloats[i] {
+			t.Errorf("col2[%d] = %f, want %f", i, floatCol.Value(i), expectedFloats[i])
+		}
+	}
+}
+
+func TestDataFrameWhere_EdgeCases(t *testing.T) {
+	mem := memory.NewGoAllocator()
+
+	t.Run("NilFilter", func(t *testing.T) {
+		b := array.NewInt64Builder(mem)
+		b.AppendValues([]int64{1, 2, 3}, nil)
+		arr := b.NewArray()
+		b.Release()
+		df, err := NewDataFrame([]arrow.Array{arr}, []string{"col"})
 		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
+			t.Fatalf("failed to create dataframe: %v", err)
 		}
 		defer df.Release()
 
-		// Create a comparison array using the Series.Comparison method
-		s, err := df.Get("col1")
-		if err != nil {
-			t.Fatalf("failed to get col1: %v", err)
-		}
-		defer s.Release()
-
-		filterArray, err := s.Comparison(series.Equal, int64(3))
-		if err != nil {
-			t.Fatalf("failed to create comparison array: %v", err)
-		}
-
-		// Apply the filter
-		result, err := df.Where(filterArray)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
-
-		// Check result
-		if result.record.NumRows() != 1 {
-			t.Errorf("expected 1 row, got %d", result.record.NumRows())
-		}
-
-		// Check if the filtered row has the expected values
-		resultCol1, err := result.Get("col1")
-		if err != nil {
-			t.Fatalf("failed to get col1: %v", err)
-		}
-		defer resultCol1.Release()
-		resultCol2, err := result.Get("col2")
-		if err != nil {
-			t.Fatalf("failed to get col2: %v", err)
-		}
-		defer resultCol2.Release()
-
-		// Check the length of the result columns
-		if resultCol1.Len() != 1 {
-			t.Errorf("expected length 1 for col1, got %d", resultCol1.Len())
-		}
-		if resultCol2.Len() != 1 {
-			t.Errorf("expected length 1 for col2, got %d", resultCol2.Len())
-		}
-
-		// Check the string representation contains expected values
-		col1Str := resultCol1.String()
-		if !strings.Contains(col1Str, "3") {
-			t.Errorf("expected col1 to contain value 3, got %s", col1Str)
-		}
-
-		col2Str := resultCol2.String()
-		if !strings.Contains(col2Str, "3.3") {
-			t.Errorf("expected col2 to contain value 3.3, got %s", col2Str)
+		if _, err := df.Where(nil); err == nil {
+			t.Fatalf("expected error for nil filter")
 		}
 	})
 
-	t.Run("filter with greater condition on float64", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []int64{1, 2, 3, 4, 5},
-			"col2": []float64{1.1, 2.2, 3.3, 4.4, 5.5},
-		})
+	t.Run("WrongFilterLength", func(t *testing.T) {
+		b := array.NewInt64Builder(mem)
+		b.AppendValues([]int64{1, 2, 3}, nil)
+		arr := b.NewArray()
+		b.Release()
+		df, err := NewDataFrame([]arrow.Array{arr}, []string{"col"})
 		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
+			t.Fatalf("failed to create dataframe: %v", err)
 		}
 		defer df.Release()
 
-		// Create a comparison array using the Series.Comparison method
-		s, err := df.Get("col2")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer s.Release()
+		fb := array.NewBooleanBuilder(mem)
+		fb.AppendValues([]bool{true, false}, nil)
+		filter := fb.NewArray()
+		fb.Release()
+		defer filter.Release()
 
-		filterArray, err := s.Comparison(series.Greater, 3.0)
-		if err != nil {
-			t.Fatalf("failed to create comparison array: %v", err)
-		}
-
-		// Apply the filter
-		result, err := df.Where(filterArray)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
-
-		// Check result
-		if result.record.NumRows() != 3 {
-			t.Errorf("expected 3 rows, got %d", result.record.NumRows())
-		}
-
-		// Check if the filtered rows have the expected values
-		resultCol2, err := result.Get("col2")
-		if err != nil {
-			t.Fatalf("failed to get col2: %v", err)
-		}
-		defer resultCol2.Release()
-
-		// Check the length of the result column
-		if resultCol2.Len() != 3 {
-			t.Errorf("expected length 3 for col2, got %d", resultCol2.Len())
-		}
-
-		// Check the string representation contains expected values
-		col2Str := resultCol2.String()
-		for _, expected := range []string{"3.3", "4.4", "5.5"} {
-			if !strings.Contains(col2Str, expected) {
-				t.Errorf("expected col2 to contain value %s, got %s", expected, col2Str)
-			}
+		if _, err := df.Where(series.ComparisonArray(filter)); err == nil {
+			t.Fatalf("expected error for wrong filter length")
 		}
 	})
 
-	t.Run("filter with less_equal condition on string", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []int64{1, 2, 3, 4, 5},
-			"col2": []string{"a", "b", "c", "d", "e"},
-		})
+	t.Run("NonBooleanFilter", func(t *testing.T) {
+		b := array.NewInt64Builder(mem)
+		b.AppendValues([]int64{1, 2, 3}, nil)
+		arr := b.NewArray()
+		b.Release()
+		df, err := NewDataFrame([]arrow.Array{arr}, []string{"col"})
 		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
+			t.Fatalf("failed to create dataframe: %v", err)
 		}
 		defer df.Release()
 
-		// Create a comparison array using the Series.Comparison method
-		s, err := df.Get("col2")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer s.Release()
+		ib := array.NewInt64Builder(mem)
+		ib.AppendValues([]int64{1, 0, 1}, nil)
+		filter := ib.NewArray()
+		ib.Release()
+		defer filter.Release()
 
-		filterArray, err := s.Comparison(series.LessEqual, "c")
-		if err != nil {
-			t.Fatalf("failed to create comparison array: %v", err)
-		}
-
-		// Apply the filter
-		result, err := df.Where(filterArray)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
-
-		// Check result
-		if result.record.NumRows() != 3 {
-			t.Errorf("expected 3 rows, got %d", result.record.NumRows())
-		}
-
-		// Check if the filtered rows have the expected values
-		resultCol2, err := result.Get("col2")
-		if err != nil {
-			t.Fatalf("failed to get col2: %v", err)
-		}
-		defer resultCol2.Release()
-
-		// Check the length of the result column
-		if resultCol2.Len() != 3 {
-			t.Errorf("expected length 3 for col2, got %d", resultCol2.Len())
-		}
-
-		// Check the string representation contains expected values
-		col2Str := resultCol2.String()
-		for _, expected := range []string{"a", "b", "c"} {
-			if !strings.Contains(col2Str, expected) {
-				t.Errorf("expected col2 to contain value %s, got %s", expected, col2Str)
-			}
+		if _, err := df.Where(series.ComparisonArray(filter)); err == nil {
+			t.Fatalf("expected error for non-boolean filter")
 		}
 	})
 
-	t.Run("filter with not_equal condition on boolean", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []bool{true, false, true, false, true},
-			"col2": []int64{1, 2, 3, 4, 5},
-		})
+	t.Run("EmptyDataFrame", func(t *testing.T) {
+		b := array.NewInt64Builder(mem)
+		arr := b.NewArray()
+		b.Release()
+		df, err := NewDataFrame([]arrow.Array{arr}, []string{"col"})
 		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
+			t.Fatalf("failed to create dataframe: %v", err)
 		}
 		defer df.Release()
 
-		// Create a comparison array using the Series.Comparison method
-		s, err := df.Get("col1")
+		fb := array.NewBooleanBuilder(mem)
+		filter := fb.NewArray()
+		fb.Release()
+		defer filter.Release()
+
+		res, err := df.Where(series.ComparisonArray(filter))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		defer s.Release()
-
-		filterArray, err := s.Comparison(series.NotEqual, true)
-		if err != nil {
-			t.Fatalf("failed to create comparison array: %v", err)
-		}
-
-		// Apply the filter
-		result, err := df.Where(filterArray)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
-
-		// Check result
-		if result.record.NumRows() != 2 {
-			t.Errorf("expected 2 rows, got %d", result.record.NumRows())
-		}
-
-		// Check if the filtered rows have the expected values
-		resultCol1, err := result.Get("col1")
-		if err != nil {
-			t.Fatalf("failed to get col1: %v", err)
-		}
-		defer resultCol1.Release()
-		resultCol2, err := result.Get("col2")
-		if err != nil {
-			t.Fatalf("failed to get col2: %v", err)
-		}
-		defer resultCol2.Release()
-
-		// Check the length of the result columns
-		if resultCol1.Len() != 2 {
-			t.Errorf("expected length 2 for col1, got %d", resultCol1.Len())
-		}
-		if resultCol2.Len() != 2 {
-			t.Errorf("expected length 2 for col2, got %d", resultCol2.Len())
-		}
-
-		// Check the string representation contains expected values
-		col1Str := resultCol1.String()
-		if !strings.Contains(col1Str, "false") {
-			t.Errorf("expected col1 to contain value false, got %s", col1Str)
-		}
-
-		col2Str := resultCol2.String()
-		for _, expected := range []string{"2", "4"} {
-			if !strings.Contains(col2Str, expected) {
-				t.Errorf("expected col2 to contain value %s, got %s", expected, col2Str)
-			}
+		defer res.Release()
+		if res.numRows != 0 {
+			t.Fatalf("expected 0 rows, got %d", res.numRows)
 		}
 	})
 
-	t.Run("filter with no matching rows", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []int64{1, 2, 3, 4, 5},
-		})
+	t.Run("NoMatchingRows", func(t *testing.T) {
+		b := array.NewInt64Builder(mem)
+		b.AppendValues([]int64{1, 2, 3}, nil)
+		arr := b.NewArray()
+		b.Release()
+		df, err := NewDataFrame([]arrow.Array{arr}, []string{"col"})
 		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
+			t.Fatalf("failed to create dataframe: %v", err)
 		}
 		defer df.Release()
 
-		// Create a comparison array using the Series.Comparison method
-		s, err := df.Get("col1")
+		fb := array.NewBooleanBuilder(mem)
+		fb.AppendValues([]bool{false, false, false}, nil)
+		filter := fb.NewArray()
+		fb.Release()
+		defer filter.Release()
+
+		res, err := df.Where(series.ComparisonArray(filter))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		defer s.Release()
-
-		filterArray, err := s.Comparison(series.Equal, int64(10)) // No matching value
-		if err != nil {
-			t.Fatalf("failed to create comparison array: %v", err)
-		}
-
-		// Apply the filter
-		result, err := df.Where(filterArray)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
-
-		// Check result
-		if result.record.NumRows() != 0 {
-			t.Errorf("expected 0 rows, got %d", result.record.NumRows())
+		defer res.Release()
+		if res.numRows != 0 {
+			t.Fatalf("expected 0 rows, got %d", res.numRows)
 		}
 	})
 
-	t.Run("filter with all matching rows", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []int64{1, 2, 3, 4, 5},
-		})
+	t.Run("AllRowsMatching", func(t *testing.T) {
+		b := array.NewInt64Builder(mem)
+		b.AppendValues([]int64{1, 2, 3}, nil)
+		arr := b.NewArray()
+		b.Release()
+		df, err := NewDataFrame([]arrow.Array{arr}, []string{"col"})
 		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
+			t.Fatalf("failed to create dataframe: %v", err)
 		}
 		defer df.Release()
 
-		// Create a comparison array using the Series.Comparison method
-		s, err := df.Get("col1")
+		fb := array.NewBooleanBuilder(mem)
+		fb.AppendValues([]bool{true, true, true}, nil)
+		filter := fb.NewArray()
+		fb.Release()
+		defer filter.Release()
+
+		res, err := df.Where(series.ComparisonArray(filter))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		defer s.Release()
-
-		filterArray, err := s.Comparison(series.GreaterEqual, int64(1)) // All values match
-		if err != nil {
-			t.Fatalf("failed to create comparison array: %v", err)
-		}
-
-		// Apply the filter
-		result, err := df.Where(filterArray)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
-
-		// Check result
-		if result.record.NumRows() != 5 {
-			t.Errorf("expected 5 rows, got %d", result.record.NumRows())
-		}
-
-		// Check if all rows are present in the result
-		resultCol1, err := result.Get("col1")
-		if err != nil {
-			t.Fatalf("failed to get col1: %v", err)
-		}
-		defer resultCol1.Release()
-
-		// Check the length of the result column
-		if resultCol1.Len() != 5 {
-			t.Errorf("expected length 5 for col1, got %d", resultCol1.Len())
-		}
-
-		// Check the string representation contains expected values
-		col1Str := resultCol1.String()
-		for _, expected := range []string{"1", "2", "3", "4", "5"} {
-			if !strings.Contains(col1Str, expected) {
-				t.Errorf("expected col1 to contain value %s, got %s", expected, col1Str)
-			}
+		defer res.Release()
+		if res.numRows != 3 {
+			t.Fatalf("expected 3 rows, got %d", res.numRows)
 		}
 	})
 }
 
-func TestDataFrame_WhereBy(t *testing.T) {
-	// Setup memory allocator
+func TestDataFrameWhere_DifferentTypes(t *testing.T) {
 	mem := memory.NewGoAllocator()
 
-	t.Run("filter with equal condition on int64", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []int64{1, 2, 3, 4, 5},
-			"col2": []float64{1.1, 2.2, 3.3, 4.4, 5.5},
-		})
-		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
-		}
-		defer df.Release()
+	b1 := array.NewInt64Builder(mem)
+	b2 := array.NewFloat32Builder(mem)
+	b3 := array.NewStringBuilder(mem)
+	b4 := array.NewBooleanBuilder(mem)
+	b1.AppendValues([]int64{1, 2, 3, 4, 5}, nil)
+	b2.AppendValues([]float32{1.1, 2.2, 3.3, 4.4, 5.5}, nil)
+	b3.AppendValues([]string{"a", "b", "c", "d", "e"}, nil)
+	b4.AppendValues([]bool{true, false, true, false, true}, nil)
+	arr1 := b1.NewArray()
+	arr2 := b2.NewArray()
+	arr3 := b3.NewArray()
+	arr4 := b4.NewArray()
+	b1.Release()
+	b2.Release()
+	b3.Release()
+	b4.Release()
 
-		// Apply the filter using WhereBy
-		result, err := df.WhereBy("col1", series.Equal, int64(3))
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
+	df, err := NewDataFrame([]arrow.Array{arr1, arr2, arr3, arr4}, []string{"ints", "floats", "strings", "bools"})
+	if err != nil {
+		t.Fatalf("failed to create dataframe: %v", err)
+	}
+	defer df.Release()
 
-		// Check result
-		if result.record.NumRows() != 1 {
-			t.Errorf("expected 1 row, got %d", result.record.NumRows())
-		}
+	s := series.NewSeries("ints", df.columns[0])
+	defer s.Release()
+	filter, err := s.Comparison(utils.Greater, int64(2))
+	if err != nil {
+		t.Fatalf("comparison failed: %v", err)
+	}
+	defer filter.Release()
 
-		// Check if the filtered row has the expected values
-		resultCol1, err := result.Get("col1")
-		if err != nil {
-			t.Fatalf("failed to get col1: %v", err)
-		}
-		defer resultCol1.Release()
+	res, err := df.Where(filter)
+	if err != nil {
+		t.Fatalf("where failed: %v", err)
+	}
+	defer res.Release()
 
-		resultCol2, err := result.Get("col2")
-		if err != nil {
-			t.Fatalf("failed to get col2: %v", err)
-		}
-		defer resultCol2.Release()
+	if res.numRows != 3 {
+		t.Fatalf("expected 3 rows, got %d", res.numRows)
+	}
 
-		// Check the length of the result columns
-		if resultCol1.Len() != 1 {
-			t.Errorf("expected length 1 for col1, got %d", resultCol1.Len())
+	intCol := res.columns[0].(*array.Int64)
+	floatCol := res.columns[1].(*array.Float32)
+	stringCol := res.columns[2].(*array.String)
+	boolCol := res.columns[3].(*array.Boolean)
+	expectedInts := []int64{3, 4, 5}
+	expectedFloats := []float32{3.3, 4.4, 5.5}
+	expectedStrings := []string{"c", "d", "e"}
+	expectedBools := []bool{true, false, true}
+	for i := 0; i < 3; i++ {
+		if intCol.Value(i) != expectedInts[i] {
+			t.Errorf("ints[%d] = %d, want %d", i, intCol.Value(i), expectedInts[i])
 		}
-		if resultCol2.Len() != 1 {
-			t.Errorf("expected length 1 for col2, got %d", resultCol2.Len())
+		if floatCol.Value(i) != expectedFloats[i] {
+			t.Errorf("floats[%d] = %f, want %f", i, floatCol.Value(i), expectedFloats[i])
 		}
+		if stringCol.Value(i) != expectedStrings[i] {
+			t.Errorf("strings[%d] = %s, want %s", i, stringCol.Value(i), expectedStrings[i])
+		}
+		if boolCol.Value(i) != expectedBools[i] {
+			t.Errorf("bools[%d] = %t, want %t", i, boolCol.Value(i), expectedBools[i])
+		}
+	}
+}
 
-		// Check the string representation contains expected values
-		col1Str := resultCol1.String()
-		if !strings.Contains(col1Str, "3") {
-			t.Errorf("expected col1 to contain value 3, got %s", col1Str)
-		}
+func TestDataFrameWhere_ConcurrentAccess(t *testing.T) {
+	mem := memory.NewGoAllocator()
 
-		col2Str := resultCol2.String()
-		if !strings.Contains(col2Str, "3.3") {
-			t.Errorf("expected col2 to contain value 3.3, got %s", col2Str)
-		}
-	})
+	b := array.NewInt64Builder(mem)
+	b.AppendValues([]int64{1, 2, 3, 4, 5}, nil)
+	arr := b.NewArray()
+	b.Release()
 
-	t.Run("filter with greater condition on float64", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []int64{1, 2, 3, 4, 5},
-			"col2": []float64{1.1, 2.2, 3.3, 4.4, 5.5},
-		})
-		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
-		}
-		defer df.Release()
+	df, err := NewDataFrame([]arrow.Array{arr}, []string{"col"})
+	if err != nil {
+		t.Fatalf("failed to create dataframe: %v", err)
+	}
+	defer df.Release()
 
-		// Apply the filter using WhereBy
-		result, err := df.WhereBy("col2", series.Greater, 3.0)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
+	s := series.NewSeries("col", df.columns[0])
+	filter, err := s.Comparison(utils.Greater, int64(2))
+	if err != nil {
+		t.Fatalf("comparison failed: %v", err)
+	}
+	defer filter.Release()
+	s.Release()
 
-		// Check result
-		if result.record.NumRows() != 3 {
-			t.Errorf("expected 3 rows, got %d", result.record.NumRows())
-		}
-
-		// Check if the filtered rows have the expected values
-		resultCol2, err := result.Get("col2")
-		if err != nil {
-			t.Fatalf("failed to get col2: %v", err)
-		}
-		defer resultCol2.Release()
-
-		// Check the length of the result column
-		if resultCol2.Len() != 3 {
-			t.Errorf("expected length 3 for col2, got %d", resultCol2.Len())
-		}
-
-		// Check the string representation contains expected values
-		col2Str := resultCol2.String()
-		for _, expected := range []string{"3.3", "4.4", "5.5"} {
-			if !strings.Contains(col2Str, expected) {
-				t.Errorf("expected col2 to contain value %s, got %s", expected, col2Str)
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			res, err := df.Where(filter)
+			if err != nil {
+				t.Errorf("where failed: %v", err)
+				return
 			}
-		}
-	})
-
-	t.Run("filter with less_equal condition on string", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []int64{1, 2, 3, 4, 5},
-			"col2": []string{"a", "b", "c", "d", "e"},
-		})
-		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
-		}
-		defer df.Release()
-
-		// Apply the filter using WhereBy
-		result, err := df.WhereBy("col2", series.LessEqual, "c")
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
-
-		// Check result
-		if result.record.NumRows() != 3 {
-			t.Errorf("expected 3 rows, got %d", result.record.NumRows())
-		}
-
-		// Check if the filtered rows have the expected values
-		resultCol2, err := result.Get("col2")
-		if err != nil {
-			t.Fatalf("failed to get col2: %v", err)
-		}
-		defer resultCol2.Release()
-
-		// Check the length of the result column
-		if resultCol2.Len() != 3 {
-			t.Errorf("expected length 3 for col2, got %d", resultCol2.Len())
-		}
-
-		// Check the string representation contains expected values
-		col2Str := resultCol2.String()
-		for _, expected := range []string{"a", "b", "c"} {
-			if !strings.Contains(col2Str, expected) {
-				t.Errorf("expected col2 to contain value %s, got %s", expected, col2Str)
+			defer res.Release()
+			if res.numRows != 3 {
+				t.Errorf("expected 3 rows, got %d", res.numRows)
 			}
-		}
-	})
-
-	t.Run("filter with not_equal condition on boolean", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []bool{true, false, true, false, true},
-			"col2": []int64{1, 2, 3, 4, 5},
-		})
-		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
-		}
-		defer df.Release()
-
-		// Apply the filter using WhereBy
-		result, err := df.WhereBy("col1", series.NotEqual, true)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
-
-		// Check result
-		if result.record.NumRows() != 2 {
-			t.Errorf("expected 2 rows, got %d", result.record.NumRows())
-		}
-
-		// Check if the filtered rows have the expected values
-		resultCol1, err := result.Get("col1")
-		if err != nil {
-			t.Fatalf("failed to get col1: %v", err)
-		}
-		defer resultCol1.Release()
-
-		resultCol2, err := result.Get("col2")
-		if err != nil {
-			t.Fatalf("failed to get col2: %v", err)
-		}
-		defer resultCol2.Release()
-
-		// Check the length of the result columns
-		if resultCol1.Len() != 2 {
-			t.Errorf("expected length 2 for col1, got %d", resultCol1.Len())
-		}
-		if resultCol2.Len() != 2 {
-			t.Errorf("expected length 2 for col2, got %d", resultCol2.Len())
-		}
-
-		// Check the string representation contains expected values
-		col1Str := resultCol1.String()
-		if !strings.Contains(col1Str, "false") {
-			t.Errorf("expected col1 to contain value false, got %s", col1Str)
-		}
-
-		col2Str := resultCol2.String()
-		for _, expected := range []string{"2", "4"} {
-			if !strings.Contains(col2Str, expected) {
-				t.Errorf("expected col2 to contain value %s, got %s", expected, col2Str)
-			}
-		}
-	})
-
-	t.Run("filter with no matching rows", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []int64{1, 2, 3, 4, 5},
-		})
-		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
-		}
-		defer df.Release()
-
-		// Apply the filter using WhereBy
-		result, err := df.WhereBy("col1", series.Equal, int64(10)) // No matching value
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
-
-		// Check result
-		if result.record.NumRows() != 0 {
-			t.Errorf("expected 0 rows, got %d", result.record.NumRows())
-		}
-	})
-
-	t.Run("filter with all matching rows", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []int64{1, 2, 3, 4, 5},
-		})
-		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
-		}
-		defer df.Release()
-
-		// Apply the filter using WhereBy
-		result, err := df.WhereBy("col1", series.GreaterEqual, int64(1)) // All values match
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		defer result.Release()
-
-		// Check result
-		if result.record.NumRows() != 5 {
-			t.Errorf("expected 5 rows, got %d", result.record.NumRows())
-		}
-
-		// Check if all rows are present in the result
-		resultCol1, err := result.Get("col1")
-		if err != nil {
-			t.Fatalf("failed to get col1: %v", err)
-		}
-		defer resultCol1.Release()
-
-		// Check the length of the result column
-		if resultCol1.Len() != 5 {
-			t.Errorf("expected length 5 for col1, got %d", resultCol1.Len())
-		}
-
-		// Check the string representation contains expected values
-		col1Str := resultCol1.String()
-		for _, expected := range []string{"1", "2", "3", "4", "5"} {
-			if !strings.Contains(col1Str, expected) {
-				t.Errorf("expected col1 to contain value %s, got %s", expected, col1Str)
-			}
-		}
-	})
-
-	t.Run("filter with non-existent column", func(t *testing.T) {
-		// Create a test DataFrame
-		df, err := NewDataFrameFromMapWithMemory(mem, map[string]interface{}{
-			"col1": []int64{1, 2, 3, 4, 5},
-		})
-		if err != nil {
-			t.Fatalf("failed to create DataFrame: %v", err)
-		}
-		defer df.Release()
-
-		// Apply the filter using WhereBy with a non-existent column
-		_, err = df.WhereBy("non_existent", series.Equal, int64(3))
-
-		// Check that an error was returned
-		if err == nil {
-			t.Errorf("expected error for non-existent column, got nil")
-		} else if err.Error() != "no such column: non_existent" {
-			t.Errorf("unexpected error message: %v", err)
-		}
-	})
+		}()
+	}
+	wg.Wait()
 }
