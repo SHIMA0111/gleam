@@ -91,6 +91,7 @@ func TestDataFrameWhere_Errors(t *testing.T) {
 	ib.AppendValues([]int64{1, 0, 1}, nil)
 	wrong := ib.NewArray()
 	ib.Release()
+	defer wrong.Release()
 
 	sWrong := series.ComparisonArray(wrong)
 	if _, err := df.Where(sWrong); err == nil {
@@ -102,6 +103,7 @@ func TestDataFrameWhere_Errors(t *testing.T) {
 	bb.AppendValues([]bool{true, false}, nil) // shorter
 	short := bb.NewArray()
 	bb.Release()
+	defer short.Release()
 
 	if _, err := df.Where(series.ComparisonArray(short)); err == nil {
 		t.Fatalf("expected error for length mismatch")
@@ -192,11 +194,14 @@ func TestDataFrameWhere_EdgeCases(t *testing.T) {
 	bbf := array.NewBooleanBuilder(mem)
 	emptyFilter := bbf.NewArray()
 	bbf.Release()
+	defer emptyFilter.Release()
+
 	resEmpty, err := dfEmpty.Where(series.ComparisonArray(emptyFilter))
 	if err != nil {
 		t.Fatalf("where on empty df failed: %v", err)
 	}
 	defer resEmpty.Release()
+
 	if resEmpty.numRows != 0 || resEmpty.numCols != 3 {
 		t.Fatalf("unexpected empty result shape rows=%d cols=%d", resEmpty.numRows, resEmpty.numCols)
 	}
@@ -224,6 +229,7 @@ func TestDataFrameWhere_EdgeCases(t *testing.T) {
 	bfAllFalse.AppendValues([]bool{false, false, false, false}, nil)
 	allFalse := bfAllFalse.NewArray()
 	bfAllFalse.Release()
+	defer allFalse.Release()
 
 	resNone, err := df2.Where(series.ComparisonArray(allFalse))
 	if err != nil {
@@ -239,6 +245,7 @@ func TestDataFrameWhere_EdgeCases(t *testing.T) {
 	bfAllTrue.AppendValues([]bool{true, true, true, true}, nil)
 	allTrue := bfAllTrue.NewArray()
 	bfAllTrue.Release()
+	defer allTrue.Release()
 
 	resAll, err := df2.Where(series.ComparisonArray(allTrue))
 	if err != nil {

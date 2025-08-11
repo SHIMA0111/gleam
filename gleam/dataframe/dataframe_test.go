@@ -21,6 +21,8 @@ func TestNewDataFrame_AutoNamesAndSchema(t *testing.T) {
 	strArr := sb.NewArray()
 	ib.Release()
 	sb.Release()
+	defer intArr.Release()
+	defer strArr.Release()
 
 	df, err := NewDataFrame([]arrow.Array{intArr, strArr}, nil)
 	if err != nil {
@@ -57,6 +59,8 @@ func TestNewDataFrame_NamesLengthMismatch(t *testing.T) {
 	arr2 := jb.NewArray()
 	ib.Release()
 	jb.Release()
+	defer arr1.Release()
+	defer arr2.Release()
 
 	_, err := NewDataFrame([]arrow.Array{arr1, arr2}, []string{"only_one"})
 	if err == nil {
@@ -75,6 +79,8 @@ func TestNewDataFrame_ColumnLengthMismatch(t *testing.T) {
 	arr2 := jb.NewArray()
 	ib.Release()
 	jb.Release()
+	defer arr1.Release()
+	defer arr2.Release()
 
 	_, err := NewDataFrame([]arrow.Array{arr1, arr2}, []string{"a", "b"})
 	if err == nil {
