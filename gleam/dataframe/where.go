@@ -21,7 +21,7 @@ func (df *DataFrame) Where(filterArray series.ComparisonArray) (*DataFrame, erro
 	if filterArray.DataType().ID() != arrow.BOOL {
 		return nil, fmt.Errorf("filter array must be boolean type")
 	}
-	if int(filterArray.Len()) != df.numRows {
+	if filterArray.Len() != df.numRows {
 		return nil, fmt.Errorf("filter array length %d does not match dataframe rows %d", filterArray.Len(), df.numRows)
 	}
 
