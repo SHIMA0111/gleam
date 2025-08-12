@@ -2,6 +2,7 @@ package dataframe
 
 import (
 	"fmt"
+
 	"github.com/apache/arrow-go/v18/arrow"
 	"github.com/apache/arrow-go/v18/arrow/memory"
 )
@@ -63,4 +64,24 @@ func (df *DataFrame) Release() {
 	for _, column := range df.columns {
 		column.Release()
 	}
+}
+
+// Column returns the column array at the specified index.
+// Returns an error if the index is out of bounds.
+func (df *DataFrame) Column(index int) (arrow.Array, error) {
+	if index < 0 || index >= df.numCols {
+		return nil, fmt.Errorf("column index %d out of bounds [0, %d)", index, df.numCols)
+	}
+	return df.columns[index], nil
+}
+
+// ColumnByName returns the column array with the specified name.
+// Returns an error if the column name is not found.
+func (df *DataFrame) ColumnByName(name string) (arrow.Array, error) {
+	for i := 0; i < df.numCols; i++ {
+		if df.schema.Field(i).Name == name {
+			return df.columns[i], nil
+		}
+	}
+	return nil, fmt.Errorf("column '%s' not found", name)
 }

@@ -5,7 +5,6 @@ go 1.24
 require (
 	github.com/apache/arrow-go/v18 v18.4.0
 	github.com/go-gota/gota v0.12.0
-	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 )
 
 require (
@@ -22,6 +21,7 @@ require (
 	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/zeebo/xxh3 v1.0.2 // indirect
+	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect
