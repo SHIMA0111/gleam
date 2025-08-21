@@ -80,6 +80,72 @@ func TestSeries_Where(t *testing.T) {
 		}
 	})
 
+	t.Run("uint32 equal filter", func(t *testing.T) {
+		// Create a builder for uint32 values
+		builder := array.NewUint32Builder(mem)
+		defer builder.Release()
+
+		// Append values
+		builder.AppendValues([]uint32{1, 2, 3, 4, 5}, nil)
+		arr := builder.NewArray()
+		defer arr.Release()
+
+		// Create a series
+		s := NewSeries("test", arr)
+		defer s.Release()
+
+		// Filter where values equal 3
+		result, err := s.Where(utils.Equal, uint32(3))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		defer result.Release()
+
+		// Check result
+		if result.Len() != 1 {
+			t.Errorf("expected length 1, got %d", result.Len())
+		}
+
+		// Access the underlying array to check values
+		resultArr := result.array.(*array.Uint32)
+		if resultArr.Value(0) != 3 {
+			t.Errorf("expected value 3, got %d", resultArr.Value(0))
+		}
+	})
+
+	t.Run("uint64 equal filter", func(t *testing.T) {
+		// Create a builder for uint64 values
+		builder := array.NewUint64Builder(mem)
+		defer builder.Release()
+
+		// Append values
+		builder.AppendValues([]uint64{1, 2, 3, 4, 5}, nil)
+		arr := builder.NewArray()
+		defer arr.Release()
+
+		// Create a series
+		s := NewSeries("test", arr)
+		defer s.Release()
+
+		// Filter where values equal 3
+		result, err := s.Where(utils.Equal, uint64(3))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		defer result.Release()
+
+		// Check result
+		if result.Len() != 1 {
+			t.Errorf("expected length 1, got %d", result.Len())
+		}
+
+		// Access the underlying array to check values
+		resultArr := result.array.(*array.Uint64)
+		if resultArr.Value(0) != 3 {
+			t.Errorf("expected value 3, got %d", resultArr.Value(0))
+		}
+	})
+
 	t.Run("float64 less_equal filter", func(t *testing.T) {
 		// Create a builder for float64 values
 		builder := array.NewFloat64Builder(mem)
